@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap');
+@import "tailwindcss";
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Mega Dropdown Starts */
+.mega-dropdown {
+  position: absolute;
+  left: 0;
+  width: 100vw;
+  max-width: 100%;
+  transform: translateX(-50%);
+  left: 50%;
+  top: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 50;
+}
+
+.has-submenu {
+  position: static;
+}
+
+.has-submenu:hover .mega-dropdown {
+  opacity: 1;
+  visibility: visible;
+}
+
+nav {
+  position: relative;
+}
+
+/* Container styles remain the same */
+.dropdown-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3rem;
+  padding: 1rem 0;
+  /* Add padding inside dropdown */
+}
+
+.dropdown-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dropdown-header {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  color: #111827;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dropdown-link {
+  font-size: 0.875rem;
+  color: #4b5563;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.dropdown-link:hover {
+  color: #32BBAB;
+  transform: translateX(4px);
+}
+
+/* Mega Dropdown Ends */
+/* Hide scrollbar globally Starts */
+::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+header {
+  max-width: 100%;
+}
+
+/* Hide scrollbar globally Ends */
+
+/* Custom Animations */
+@keyframes gradient-x {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 3s ease infinite;
+}
+
+/* Animated Teal Full-Button Gradient */
+@keyframes teal-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.btn-animated-gradient {
+  background: linear-gradient(270deg,
+      #0d9488,
+      #14b8a6,
+      #2dd4bf,
+      #32BBAB,
+      #06b6d4,
+      #0891b2,
+      #22d3ee,
+      #5eead4,
+      #0d9488);
+  background-size: 400% 400%;
+  animation: teal-shift 4s ease infinite;
+  color: white;
+  border: none;
+}
+
+.btn-animated-gradient:hover {
+  filter: brightness(1.12);
+}
+
+.btn-animated-gradient:disabled {
+  animation: none;
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+
+.manrope {
+  font-family: "Manrope", sans-serif;
+}
