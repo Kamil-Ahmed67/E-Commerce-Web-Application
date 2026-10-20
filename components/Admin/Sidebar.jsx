@@ -9,11 +9,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AiOutlineDashboard, AiOutlineLogout } from 'react-icons/ai';
 import { GoSidebarCollapse } from 'react-icons/go';
 import { FaThList, FaChevronDown } from 'react-icons/fa';
-import { MdDiscount, MdEditCalendar, MdFeedback } from 'react-icons/md';
+import { MdDiscount, MdEditCalendar, MdFeedback, MdOutlineDescription, MdArticle, MdSell, MdLocalShipping, MdPeopleAlt, MdNewspaper, MdSort, MdRssFeed } from 'react-icons/md';
 import { CgMenuGridR } from 'react-icons/cg';
-import { IoSettings } from "react-icons/io5";
+import { IoSettings, IoChatbubblesOutline } from "react-icons/io5";
 import { useBrandContext } from '@/provider/BrandProvider';
 import { AuthContext } from '@/provider/AuthProvider';
+import { ROLE_MENU_ACCESS, isFullAccessRole } from '@/lib/adminRoles';
 
 const staticMenus = [
   {
@@ -43,14 +44,47 @@ const staticMenus = [
       { id: 'add-menu', title: 'Add Menu', href: '/menu' },
       { id: 'menu-list', title: 'Menu List', href: '/menu-list' },
       { id: 'add-banner', title: 'Add Banner', href: '/banner' },
-      { id: 'banner-list', title: 'Banner List', href: '/manage-banner' }
+      { id: 'banner-list', title: 'Banner List', href: '/manage-banner' },
+      { id: 'brand-list', title: 'Brand List', href: '/brand-list' }
     ]
   },
   {
     id: 'orders',
     title: 'Order List',
-    href: '/manage-order',
+    href: '/manage-order-demo',
     icon: FaThList,
+    children: null
+  },
+  {
+    id: 'delivery-charge',
+    title: 'Delivery Charge List',
+    href: '/delivery-charge',
+    icon: MdLocalShipping,
+    children: null
+  },
+  {
+    id: 'sell',
+    title: 'Sell',
+    href: null,
+    icon: MdSell,
+    children: [
+      { id: 'due-collection', title: 'Due Collection', href: '/due-collection' },
+      { id: 'sell-report', title: 'Sell Report', href: '/sell-report' },
+      { id: 'stock-adjustment', title: 'Stock Adjustment', href: '/stock-adjustment' },
+    ]
+  },
+  {
+    id: 'meta-title-description',
+    title: 'Meta Title & Description',
+    href: '/meta-title-description',
+    icon: MdOutlineDescription,
+    children: null
+  },
+  {
+    id: 'category-order',
+    title: 'Category Order',
+    href: '/category-order',
+    icon: MdSort,
     children: null
   },
   {
@@ -64,22 +98,62 @@ const staticMenus = [
     ]
   },
   {
+    id: 'blog',
+    title: 'Blog',
+    href: '/blog-manage',
+    icon: MdArticle,
+    children: null
+  },
+  {
+    id: 'news-events',
+    title: 'News & Events',
+    href: '/news-events-manage',
+    icon: MdNewspaper,
+    children: null
+  },
+  {
+    id: 'customer-billing',
+    title: 'Customer Billing Info',
+    href: '/customer-billing',
+    icon: MdPeopleAlt,
+    children: null
+  },
+  {
     id: 'feedback',
     title: 'Customer Feedback',
     href: '/customer-feedback',
     icon: MdFeedback,
     children: null
   },
-   {
+  {
+    id: 'chat-inbox',
+    title: 'Chat Inbox',
+    href: '/chat-inbox',
+    icon: IoChatbubblesOutline,
+    children: null
+  },
+  {
     id: 'settings',
     title: 'Settings',
     href: null,
     icon: IoSettings,
     children: [
-    { id: 'feature-control', title: 'Feature Control', href: '/feature-control' },
+      { id: 'feature-control', title: 'Feature Control', href: '/feature-control' },
+      { id: 'conversion-api', title: 'Conversion API', href: '/conversion-api' },
     ]
+  },
+  {
+    id: 'product-feed',
+    title: 'Product Feed (Facebook)',
+    href: '/product-feed.xml',
+    icon: MdRssFeed,
+    children: null,
+    openInNewTab: true
   }
 ];
+
+// Admin/Super Admin only — not granted via ROLE_MENU_ACCESS to any other role.
+const ADMIN_ONLY_MENU_IDS = ['product-feed'];
 
 const Sidebar = () => {
   const { loginData, logout } = useContext(AuthContext);
@@ -186,11 +260,14 @@ const Sidebar = () => {
         <div className="flex-1 overflow-y-auto custom-scrollbar pt-2">
           <nav className="space-y-1">
             {staticMenus
-              .filter(menu =>
-                loginData?.UserRole === 'Client'
-                  ? !['product', 'menu', 'discounts'].includes(menu.id)
-                  : true
-              )
+              .filter(menu => {
+                const role = loginData?.UserRole;
+                if (ADMIN_ONLY_MENU_IDS.includes(menu.id)) return isFullAccessRole(role);
+                if (role === 'Client') return !['product', 'menu', 'discounts'].includes(menu.id);
+                if (isFullAccessRole(role)) return true;
+                const allowedIds = ROLE_MENU_ACCESS[role];
+                return allowedIds ? allowedIds.includes(menu.id) : true;
+              })
               .map((menu) => {
                 const hasChildren = !!menu.children;
                 const active = isSectionActive(menu);
@@ -249,7 +326,11 @@ const Sidebar = () => {
                         </AnimatePresence>
                       </>
                     ) : (
-                      <Link href={menu.href || '#'}>
+                      <Link
+                        href={menu.href || '#'}
+                        target={menu.openInNewTab ? '_blank' : undefined}
+                        rel={menu.openInNewTab ? 'noopener noreferrer' : undefined}
+                      >
                         <div
                           className={`group flex items-center px-4 py-2.5 transition-all duration-200
                             ${active ? 'bg-teal-500 text-white' : 'text-gray-700 hover:bg-teal-600 hover:text-white'}`}

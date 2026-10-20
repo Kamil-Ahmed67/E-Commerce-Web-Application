@@ -61,13 +61,13 @@ export default function FeaturedProductsSection({ products, allProducts }) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-3 min-h-100">
+      <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3 min-h-100">
         {displayedProducts.length > 0 ? (
           displayedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))
         ) : (
-          <div className="col-span-5 flex flex-col items-center justify-center min-h-75 bg-gray-50 rounded-lg border border-gray-200 p-8">
+          <div className="col-span-full flex flex-col items-center justify-center min-h-75 bg-gray-50 rounded-lg border border-gray-200 p-8">
             <h3 className="text-2xl font-semibold text-gray-400 mb-1">No products found</h3>
             <p className="text-gray-500 max-w-md text-center">
               {selectedBrand

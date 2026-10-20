@@ -30,39 +30,41 @@ export async function POST(req) {
     const projectId = process.env.GOOGLE_CLOUD_PROJECT || "gen-lang-client-0044079183";
     const location = process.env.GOOGLE_CLOUD_REGION || process.env.GOOGLE_CLOUD_LOCATION || "us-central1";
 
-    // Explicitly check for Google Application Credentials
-    const googleCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-    if (googleCredentials) {
-        console.log("Using Google Application Credentials from:", googleCredentials);
-        // Ensure the SDK (and underlying GoogleAuth) can find it
-        process.env.GOOGLE_APPLICATION_CREDENTIALS = googleCredentials;
-    } else {
-        console.warn("Warning: GOOGLE_APPLICATION_CREDENTIALS not set. Vertex AI may fail if not running in an authenticated GCP environment.");
-    }
-
-    // Note: Vertex AI requires Google Cloud Project and Location.
-    // Authentication is handled via Application Default Credentials (ADC).
-    // The apiKey is NOT used for Vertex AI client initialization in this SDK.
-
     if (!projectId || !location) {
         return NextResponse.json({ success: false, error: "GOOGLE_CLOUD_PROJECT or GOOGLE_CLOUD_REGION environment variables are not set" }, { status: 500 });
     }
 
     try {
         const body = await req.json();
-        const { personImage, clothingImage, clothingImageUrl } = body; // Added clothingImageUrl
+        const { personImage, clothingImage, clothingImageUrl, userId, hasTries } = body;
+
+        // Server-side credit guard — blocks direct API abuse
+        // Reject only when the user is identified AND has no tries left (neither free nor paid)
+        if (userId && hasTries === false) {
+            return NextResponse.json(
+                { success: false, error: 'No VTO credits remaining. Please purchase a credit pack.' },
+                { status: 402 }
+            );
+        }
 
         if (!personImage) {
             return NextResponse.json({ success: false, error: "Missing personImage" }, { status: 400 });
         }
-        if (!clothingImage && !clothingImageUrl) { // Updated check
+        if (!clothingImage && !clothingImageUrl) {
             return NextResponse.json({ success: false, error: "Missing clothingImage or clothingImageUrl" }, { status: 400 });
         }
 
-        // Initialize client - apiKey is MUTUALLY EXCLUSIVE with project/location for Vertex AI
-        // We rely on ADC (Application Default Credentials) which uses the GOOGLE_APPLICATION_CREDENTIALS env var.
-        const client = new GoogleGenAI({ vertexai: true, project: projectId, location: location });
+        // Build client — prefer inline JSON credentials (works on Vercel/deployed envs)
+        let clientOptions = { vertexai: true, project: projectId, location };
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+            const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+            // Fix escaped newlines in private_key — hosting panels often store \n as literal \\n
+            if (credentials.private_key) {
+                credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+            }
+            clientOptions.googleAuthOptions = { credentials };
+        }
+        const client = new GoogleGenAI(clientOptions);
 
         const personData = personImage.split(',')[1];
 
@@ -70,8 +72,11 @@ export async function POST(req) {
         let clothingMimeType = 'image/jpeg'; // Default mime type
 
         if (clothingImageUrl) {
-            // Fetch from URL on server side
-            const fetched = await fetchRemoteImage(clothingImageUrl);
+            // Resolve relative URLs — server-side fetch requires an absolute URL
+            const absoluteUrl = clothingImageUrl.startsWith('/')
+                ? `${new URL(req.url).origin}${clothingImageUrl}`
+                : clothingImageUrl;
+            const fetched = await fetchRemoteImage(absoluteUrl);
             clothingData = fetched.base64;
             clothingMimeType = fetched.mimeType;
         } else if (clothingImage) {

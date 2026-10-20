@@ -12,10 +12,13 @@ const CheckoutOrderSummary = ({
   paymentMethod,
   onSubmit,
   isProcessing = false,
+  isSavingAddress = false,
   deliveryCharges,
-  isCalculatingCharge = false
+  isCalculatingCharge = false,
+  termsAccepted = false,
+  onTermsChange,
 }) => {
-  const { cartItems } = useCart();
+  const { cartItems, buyNowItem } = useCart();
   const [discount, setDiscount] = useState(0);
   const [mounted, setMounted] = useState(false);
   const { features, loading: featuresLoading } = useFeatures();
@@ -29,7 +32,9 @@ const CheckoutOrderSummary = ({
   }, []);
 
   // Use a stable reference for filtered items
-  const filteredItems = mounted ? cartItems.filter(item => item.checked ?? true) : [];
+  const filteredItems = mounted
+    ? (buyNowItem ? [buyNowItem] : cartItems.filter(item => item.checked ?? true))
+    : [];
   const isExclusiveVat = (vatType) =>
     String(vatType || "").trim().toLowerCase() === "exclusive";
 
@@ -166,7 +171,7 @@ const CheckoutOrderSummary = ({
               <p className="text-gray-700">{subtotal.toFixed(2)} Tk</p>
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-gray-700">Discount</p>
+              <p className="text-gray-700">Exclusive Offer</p>
               <p className="text-gray-700">-{discount.toFixed(2)} Tk</p>
             </div>
             {totalVat > 0 && (
@@ -225,14 +230,42 @@ const CheckoutOrderSummary = ({
             currentMethod={paymentMethod}
           />
 
+          {/* Terms & Conditions checkbox — desktop only; mobile version is above the Place Order button */}
+          <div className="hidden lg:block mt-5 p-4 bg-gray-50 rounded-md border border-gray-200">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <div className="relative mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => onTermsChange?.(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-5 h-5 rounded border-2 border-gray-300 bg-white peer-checked:bg-teal-600 peer-checked:border-teal-600 transition-colors duration-150 flex items-center justify-center">
+                  {termsAccepted && (
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs text-gray-600 leading-relaxed">
+                I have read and agree to the{" "}
+                <a href="/privacy-policy" target="_blank" className="text-teal-600 hover:underline font-medium">Privacy Policy</a>,{" "}
+                <a href="/terms" target="_blank" className="text-teal-600 hover:underline font-medium">Terms & Conditions</a>,{" "}
+                <a href="/replacement-policy" target="_blank" className="text-teal-600 hover:underline font-medium">Refund Policy</a>, and{" "}
+                <a href="/delivery-timeline" target="_blank" className="text-teal-600 hover:underline font-medium">Delivery Timeline</a>.
+              </span>
+            </label>
+          </div>
+
           <div className="hidden lg:block">
             {isCheckoutButtonEnabled && (
               <div className="hidden lg:block">
                 <button
                   type="button"
                   onClick={handleCheckout}
-                  className="w-full flex justify-center font-medium text-gray-50 bg-teal-600 py-2.5 px-6 rounded-sm ease-out duration-200 hover:bg-teal-700 mt-6"
-                  disabled={filteredItems.length === 0 || isProcessing || featuresLoading}
+                  className="w-full flex justify-center font-medium text-gray-50 bg-teal-600 py-2.5 px-6 rounded-sm ease-out duration-200 hover:bg-teal-700 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={filteredItems.length === 0 || isProcessing || featuresLoading || !termsAccepted || isSavingAddress}
                 >
                   {isProcessing ? (
                     <span className="flex items-center">
@@ -243,7 +276,7 @@ const CheckoutOrderSummary = ({
                       Processing...
                     </span>
                   ) : (
-                    'Process to Checkout'
+                    'Place Order'
                   )}
                 </button>
               </div>

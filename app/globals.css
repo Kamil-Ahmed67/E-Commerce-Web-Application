@@ -1,8 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap');
 @import "tailwindcss";
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Fallback until Navbar measures its real height on mount (see components/Header/Navbar.jsx) */
+  --header-height: 94px;
 }
 
 @theme inline {
@@ -12,17 +15,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Manrope", sans-serif;
+  color-scheme: light;
 }
 
 /* Mega Dropdown Starts */
@@ -181,4 +178,86 @@ header {
 
 .manrope {
   font-family: "Manrope", sans-serif;
+}
+
+.pinyon {
+  font-family: "Pinyon Script", cursive;
+}
+
+/* Solid circular arrow buttons for every Swiper slider row */
+.swiper-button-prev.swiper-button-prev,
+.swiper-button-next.swiper-button-next {
+  --swiper-navigation-color: #111827;
+  width: 42px !important;
+  height: 42px !important;
+  margin-top: -16px !important;
+  border-radius: 9999px !important;
+  background: #e5e7eb !important;
+  border: 1px solid #d1d5db !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+  color: #111827 !important;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.swiper-button-prev.swiper-button-prev:hover,
+.swiper-button-next.swiper-button-next:hover {
+  background: #d1d5db !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14) !important;
+  transform: scale(1.06);
+}
+
+.swiper-button-prev.swiper-button-prev::after,
+.swiper-button-next.swiper-button-next::after {
+  font-size: 12px !important;
+  font-weight: 900;
+  color: #111827 !important;
+}
+
+.swiper-button-prev.swiper-button-prev svg,
+.swiper-button-next.swiper-button-next svg {
+  width: 40% !important;
+  height: 40% !important;
+  fill: #111827 !important;
+  color: #111827 !important;
+}
+
+.swiper-button-disabled {
+  opacity: 0.35;
+}
+/* Filter sidebar scrollbar (overrides the global hidden scrollbar) */
+.filter-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #32BBAB #e5e7eb;
+}
+
+.filter-scroll::-webkit-scrollbar {
+  display: block;
+  width: 8px !important;
+  display: block !important;
+}
+
+.filter-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 9999px;
+}
+
+.filter-scroll::-webkit-scrollbar-thumb {
+  background: #32BBAB;
+  border-radius: 9999px;
+}
+
+.filter-scroll::-webkit-scrollbar-thumb:hover {
+  background: #279487;
+}
+
+/* Storefront typography — light, airy headings and body copy (matches the
+   "What Our Customers Say" section). Product cards keep their own styling. */
+.storefront :is(h1, h2, h3, h4, h5, h6):not(:where(.product-card *, header *, nav *)) {
+  font-family: "Manrope", sans-serif;
+  font-weight: 300;
+}
+
+.storefront p:not(.uppercase, :where(.product-card *, header *, nav *, button *)) {
+  font-weight: 300;
+  line-height: 1.7;
 }

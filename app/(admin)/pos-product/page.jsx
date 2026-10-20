@@ -2,7 +2,7 @@ import POSProduct from "@/components/Admin/POSProduct";
 
 export const metadata = {
   title: "Product List | Mingle",
-  description: "This is product list Of Mingle Fashion",
+  description: "This is product list Of Mingle In Style",
 };
 
 const POSProductListPage = () => {

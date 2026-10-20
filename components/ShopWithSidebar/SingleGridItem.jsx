@@ -53,24 +53,62 @@ const SingleGridItem = ({ product, onQuickView }) => {
     };
   }, [product, isInWishlist, subscribeToWishlistChanges]);
 
+  // useEffect(() => {
+  //   if (intervalRef.current) {
+  //     clearInterval(intervalRef.current);
+  //     intervalRef.current = null;
+  //   }
+
+  //   if (hovered && images.length > 1) {
+  //     intervalRef.current = setInterval(() => {
+  //       setCurrentImageIndex((prev) => prev + 1);
+  //       setEnableTransition(true);
+  //     }, 1400);
+  //   }
+
+  //   return () => {
+  //     if (intervalRef.current) clearInterval(intervalRef.current);
+  //   };
+  // }, [hovered, images.length]);
   useEffect(() => {
+    // Clear any existing interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
     if (hovered && images.length > 1) {
+      // Start the slideshow IMMEDIATELY with a small timeout for the first change
+      // Set a timeout for the first slide change (faster than the interval)
+      const firstChangeTimeout = setTimeout(() => {
+        setCurrentImageIndex((prev) => prev + 1);
+        setEnableTransition(true);
+      }, 400); // First change after 300ms instead of waiting for interval
+
+      // Then set up the regular interval for subsequent changes
       intervalRef.current = setInterval(() => {
         setCurrentImageIndex((prev) => prev + 1);
         setEnableTransition(true);
       }, 1400);
+
+      // Store both in ref for cleanup
+      intervalRef.current = {
+        firstTimeout: firstChangeTimeout,
+        interval: intervalRef.current
+      };
     }
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        if (intervalRef.current.firstTimeout) {
+          clearTimeout(intervalRef.current.firstTimeout);
+        }
+        if (intervalRef.current.interval) {
+          clearInterval(intervalRef.current.interval);
+        }
+      }
     };
   }, [hovered, images.length]);
-
   const handleTransitionEnd = () => {
     // when we reach the cloned first slide
     if (currentImageIndex === images.length) {
@@ -133,7 +171,7 @@ const SingleGridItem = ({ product, onQuickView }) => {
 
   return (
     <div
-      className="group relative w-full h-full flex flex-col bg-white border border-gray-100 hover:border-gray-200 rounded-none overflow-hidden transition-all duration-300"
+      className="product-card group relative w-full h-full flex flex-col bg-white border border-gray-100 hover:border-gray-200 rounded-none overflow-hidden transition-all duration-300"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -154,11 +192,10 @@ const SingleGridItem = ({ product, onQuickView }) => {
 
         <button
           onClick={handleItemToWishList}
-          className={`absolute top-3 right-3 lg:top-2.5 lg:right-2.5 z-20 p-2 lg:p-1.5 rounded-full transition-all duration-200 ${
-            isWishlisted
-              ? "text-gray-900 bg-white/90 shadow-sm"
-              : "text-gray-400 hover:text-gray-900 bg-white/80 hover:bg-white/90 shadow-sm"
-          }`}
+          className={`absolute top-3 right-3 lg:top-2.5 lg:right-2.5 z-20 p-2 lg:p-1.5 rounded-full transition-all duration-200 ${isWishlisted
+            ? "text-gray-900 bg-white/90 shadow-sm"
+            : "text-gray-400 hover:text-gray-900 bg-white/80 hover:bg-white/90 shadow-sm"
+            }`}
           disabled={product.StockQty === 0}
           aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
         >
@@ -178,7 +215,7 @@ const SingleGridItem = ({ product, onQuickView }) => {
           </svg>
         </button>
 
-        <Link prefetch={false} href={`/shop-details/${product.id}`} className="block w-full h-full">
+        <Link prefetch={false} href={`/product/${product.slug}`} className="block w-full h-full">
           <div className="relative w-full h-full overflow-hidden">
             <div
               className="flex h-full"
@@ -199,8 +236,8 @@ const SingleGridItem = ({ product, onQuickView }) => {
                     src={img}
                     alt={`${product.styleNo || product.description} - image ${index + 1}`}
                     fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-contain"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     priority={index === 0}
                   />
                 </div>
@@ -209,7 +246,7 @@ const SingleGridItem = ({ product, onQuickView }) => {
           </div>
         </Link>
 
-        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white py-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white py-2 transform md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 z-10">
           <button
             onClick={handleQuickView}
             className="w-full flex manrope items-center justify-center gap-1 text-xs uppercase tracking-wider font-medium"
@@ -219,15 +256,15 @@ const SingleGridItem = ({ product, onQuickView }) => {
         </div>
       </div>
 
-      <div className="p-3 flex flex-col">
+      <div className="p-2 flex-1 flex flex-col">
         <div className="mb-1">
-          <p className="text-xs font-light text-gray-500 uppercase tracking-widest">
-            {product.brand?.replace(/([a-z])([A-Z])/g, "$1 $2")}
+          <p className="text-[10px] font-light text-gray-500 uppercase tracking-widest min-h-[1em]">
+            {product.brand ? product.brand.replace(/([a-z])([A-Z])/g, "$1 $2") : " "}
           </p>
         </div>
 
-        <h3 className="text-xl lg:text-sm text-gray-700 mb-2 leading-tight tracking-tight">
-          <Link prefetch={false} href={`/shop-details/${product.id}`} className="hover:underline">
+        <h3 className="text-xs text-gray-700 mb-1.5 leading-tight tracking-tight line-clamp-2">
+          <Link prefetch={false} href={`/product/${product.slug}`} className="hover:underline">
             {product.description}
           </Link>
         </h3>
@@ -235,7 +272,7 @@ const SingleGridItem = ({ product, onQuickView }) => {
         <div className="mt-auto">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-lg manrope lg:text-base font-medium text-gray-900">
+              <span className="text-xs manrope font-medium text-gray-900">
                 Tk{" "}
                 {Number(product.sellingPrice).toLocaleString("en-US", {
                   minimumFractionDigits: 2,
@@ -249,13 +286,13 @@ const SingleGridItem = ({ product, onQuickView }) => {
                 {product.colors.slice(0, 3).map((color, index) => (
                   <span
                     key={index}
-                    className="w-4 h-4 rounded-full border border-gray-200"
+                    className="w-3.5 h-3.5 rounded-full border border-gray-200"
                     style={{ backgroundColor: color }}
                     aria-label={`Color option ${color}`}
                   />
                 ))}
                 {product.colors.length > 3 && (
-                  <span className="text-xs text-gray-500 flex items-center">
+                  <span className="text-[10px] text-gray-500 flex items-center">
                     +{product.colors.length - 3}
                   </span>
                 )}

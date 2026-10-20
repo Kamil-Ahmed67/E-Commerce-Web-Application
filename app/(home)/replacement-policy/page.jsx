@@ -3,7 +3,7 @@ import React from 'react'
 
 export default function ReplacementPolicy() {
     return (
-        <div className="min-h-screen manrope pt-34 bg-gray-100 py-10 px-12">
+        <div className="min-h-screen manrope pt-42 bg-gray-100 py-10 px-12">
             <div className="mx-auto bg-white rounded-lg shadow-md p-8">
                 <nav className="text-sm text-gray-500 mb-6">
                     <Link href="/" className="hover:underline">Home</Link>{' '}
@@ -104,7 +104,7 @@ export default function ReplacementPolicy() {
                 <section>
                     <h2 className="text-xl font-semibold mb-2">Contact Us</h2>
                     <p className="text-gray-700">
-                        For any questions regarding our Replacement & Refund Policy, contact us at <a href="mailto:mingle1@minglefashionbd.com" className="text-blue-600 underline">info@minglefashionbd.com</a> or call +880 1302-815322 during business hours (9AM-6PM, Saturday-Thursday).
+                        For any questions regarding our Replacement & Refund Policy, contact us at <a href="mailto:mingle1@minglefashionbd.com" className="text-blue-600 underline">info@minglefashionbd.com</a> or call +880 1302-815322 during business hours (10AM-10PM, Thursday-Tuesday).
                     </p>
                     <p className="text-gray-700 mt-4">
                         Note: We reserve the right to modify this policy at any time. Updates will be posted on this page.

@@ -3,7 +3,7 @@ import Admin from '@/components/Admin';
 import React from 'react';
 export const metadata = {
   title: "Admin | Mingle",
-  description: "This is Admin Page Of Mingle Fashion",
+  description: "This is Admin Page Of Mingle In Style",
 };
 
 export default function AdminPage() {

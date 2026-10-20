@@ -12,7 +12,7 @@ import config from '@/config';
 import { useAuth } from '@/provider/AuthProvider';
 import { getBrands } from '@/lib/server/brandData';
 import { fetchCategories } from '@/lib/server/categoryData';
-import { getAllProducts } from '@/lib/server/getAllProducts';
+import { getAdminProducts } from '@/lib/server/getAllProducts';
 export default function ProductList() {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -30,7 +30,7 @@ export default function ProductList() {
     const fetchData = async () => {
       try {
         const [productsData, brandsData, categoriesData] = await Promise.all([
-          getAllProducts(),
+          getAdminProducts(),
           getBrands(),
           fetchCategories(),
         ]);

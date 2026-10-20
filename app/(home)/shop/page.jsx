@@ -1,5 +1,6 @@
 import ShopWithSidebar from '@/components/ShopWithSidebar';
 import { Suspense } from 'react';
+
 export default function Shop() {
   return (
     <div>

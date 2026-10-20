@@ -1,0 +1,85 @@
+import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+import config from '@/config';
+
+async function getMetaConfig() {
+  try {
+    const res = await fetch(`${config.API_BASE_URL}api/Procedure/GetData`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'TenantId': config.tenantId },
+      body: JSON.stringify({
+        operation: '',
+        procedureName: 'SP_EcomConfigApi',
+        parameters: { QueryChecker: 8, Platform: 'Meta' },
+      }),
+      cache: 'no-store',
+    });
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+function sha256(value) {
+  return value
+    ? crypto.createHash('sha256').update(String(value).trim().toLowerCase()).digest('hex')
+    : undefined;
+}
+
+export async function POST(request) {
+  try {
+    const { event, data = {}, eventId, testEventCode } = await request.json();
+
+    const cfg = await getMetaConfig();
+    if (!cfg?.SocialId || !cfg?.AccessKey) {
+      return NextResponse.json({ skipped: true, reason: 'Meta not configured' });
+    }
+
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || data.ip
+      || undefined;
+
+    const payload = {
+      ...(testEventCode && { test_event_code: testEventCode }),
+      data: [
+        {
+          event_name: event,
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: eventId || `${event}_${Date.now()}`,
+          action_source: 'website',
+          user_data: {
+            em: data.email ? [sha256(data.email)] : undefined,
+            ph: data.phone ? [sha256(data.phone)] : undefined,
+            client_ip_address: ip,
+            client_user_agent: data.userAgent || undefined,
+            fbc: data.fbc || undefined,
+            fbp: data.fbp || undefined,
+          },
+          custom_data: {
+            currency: 'BDT',
+            value: data.value ?? undefined,
+            content_ids: data.contentIds ?? undefined,
+            content_type: 'product',
+            contents: data.contents ?? undefined,
+            num_items: data.numItems ?? undefined,
+            order_id: data.transactionId ?? undefined,
+          },
+        },
+      ],
+    };
+
+    const fbRes = await fetch(
+      `https://graph.facebook.com/v19.0/${cfg.SocialId}/events?access_token=${cfg.AccessKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+    );
+
+    const fbData = await fbRes.json();
+    return NextResponse.json({ ok: true, fb: fbData });
+  } catch (err) {
+    console.error('[Meta CAPI]', err.message);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

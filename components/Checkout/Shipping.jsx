@@ -2,19 +2,30 @@
 import { getDistricts, getSubDistrictsByDistrict } from "@/lib/server/addressData";
 import { useState, useEffect } from "react";
 import SearchableDropdown from "../SearchableDropdown/SearchableDropdown";
+
+const inputClass = (hasError) =>
+  `rounded border placeholder:text-gray-500 w-full py-1.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed ${
+    hasError
+      ? 'border-red-500 focus:ring-red-500/20'
+      : 'border-gray-300 focus:ring-blue-500/20'
+  }`;
+
+const FieldError = ({ msg }) =>
+  msg ? <p className="text-red-500 text-xs mt-1">{msg}</p> : null;
+
 const Shipping = ({
   data,
   onChange,
   onDistrictChange,
   onSubDistrictChange,
   disabled = false,
+  fieldErrors = {}
 }) => {
   const [dropdown, setDropdown] = useState(false);
   const [districts, setDistricts] = useState([]);
   const [subDistricts, setSubDistricts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Load districts once ──
   useEffect(() => {
     const fetchDistricts = async () => {
       try {
@@ -26,11 +37,9 @@ const Shipping = ({
         setLoading(false);
       }
     };
-
     fetchDistricts();
   }, []);
 
-  // ── Load sub-districts when district changes ──
   useEffect(() => {
     const fetchSubDistricts = async () => {
       if (data.districtId2) {
@@ -45,19 +54,11 @@ const Shipping = ({
         setSubDistricts([]);
       }
     };
-
     fetchSubDistricts();
   }, [data.districtId2]);
 
-  const districtOptions = districts.map((d) => ({
-    id: d.id,
-    name: d.name,
-  }));
-
-  const subDistrictOptions = subDistricts.map((sd) => ({
-    id: sd.id,
-    name: sd.name,
-  }));
+  const districtOptions = districts.map((d) => ({ id: d.id, name: d.name }));
+  const subDistrictOptions = subDistricts.map((sd) => ({ id: sd.id, name: sd.name }));
 
   return (
     <div className="bg-white shadow-1 rounded mt-2">
@@ -86,9 +87,10 @@ const Shipping = ({
         </svg>
       </div>
 
-      {/* Form – hidden when collapsed */}
+      {/* Form */}
       <div className={`p-4 sm:p-8.5 ${dropdown ? "block" : "hidden"}`}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-x-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-x-5">
+
           {/* Name */}
           <div className="mb-2.5">
             <label htmlFor="name2" className="block mb-2 text-sm">
@@ -97,37 +99,41 @@ const Shipping = ({
             <input
               type="text"
               name="name2"
+              id="name2"
               value={data.name2}
               onChange={onChange}
-              className="rounded border border-gray-300 placeholder:text-gray-500 w-full py-1.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={inputClass(!!fieldErrors.name2)}
             />
+            <FieldError msg={fieldErrors.name2} />
           </div>
 
           {/* Phone */}
           <div className="mb-2.5">
             <label htmlFor="phone2" className="block mb-2 text-sm">
-              Phone <span className="text-red-500">*</span>
+              Phone
             </label>
             <input
               type="text"
               name="phone2"
+              id="phone2"
               value={data.phone2}
               onChange={onChange}
-              className="rounded border border-gray-300 placeholder:text-gray-500 w-full py-1.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={inputClass(false)}
             />
           </div>
 
           {/* Email */}
           <div className="mb-2.5">
             <label htmlFor="email2" className="block mb-2 text-sm">
-              Email Address <span className="text-red-500">*</span>
+              Email Address
             </label>
             <input
               type="email"
               name="email2"
+              id="email2"
               value={data.email2}
               onChange={onChange}
-              className="rounded border border-gray-300 placeholder:text-gray-500 w-full py-1.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={inputClass(false)}
             />
           </div>
 
@@ -139,17 +145,19 @@ const Shipping = ({
             <input
               type="text"
               name="address2"
+              id="address2"
               value={data.address2}
               onChange={onChange}
               placeholder="House number and street name"
               disabled={disabled}
-              className="rounded border border-gray-300 placeholder:text-gray-500 w-full py-1.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={inputClass(!!fieldErrors.address2)}
             />
+            <FieldError msg={fieldErrors.address2} />
           </div>
 
           {/* District */}
-          <div className="mb-2.5">
-            <label htmlFor="district2" className="block text-sm mb-2">
+          <div className="mb-2.5" id="shipping-district">
+            <label className="block text-sm mb-2">
               District <span className="text-red-500">*</span>
             </label>
             {loading ? (
@@ -157,29 +165,36 @@ const Shipping = ({
                 Loading districts...
               </div>
             ) : (
-              <SearchableDropdown
-                options={districtOptions}
-                value={data.districtId2}
-                onChange={onDistrictChange}
-                placeholder="Select district"
-                disabled={disabled}
-              />
+              <div className={fieldErrors.districtId2 ? 'rounded ring-1 ring-red-500' : ''}>
+                <SearchableDropdown
+                  options={districtOptions}
+                  value={data.districtId2}
+                  onChange={onDistrictChange}
+                  placeholder="Select district"
+                  disabled={disabled}
+                />
+              </div>
             )}
+            <FieldError msg={fieldErrors.districtId2} />
           </div>
 
           {/* Sub-district */}
-          <div className="mb-2.5">
-            <label htmlFor="subDistrict2" className="block text-sm mb-2">
+          <div className="mb-2.5" id="shipping-subdistrict">
+            <label className="block text-sm mb-2">
               Sub-district <span className="text-red-500">*</span>
             </label>
-            <SearchableDropdown
-              options={subDistrictOptions}
-              value={data.subDistrictId2}
-              onChange={onSubDistrictChange}
-              placeholder="Select sub-district"
-              disabled={!data.districtId2 || disabled}
-            />
+            <div className={fieldErrors.subDistrictId2 ? 'rounded ring-1 ring-red-500' : ''}>
+              <SearchableDropdown
+                options={subDistrictOptions}
+                value={data.subDistrictId2}
+                onChange={onSubDistrictChange}
+                placeholder="Select sub-district"
+                disabled={!data.districtId2 || disabled}
+              />
+            </div>
+            <FieldError msg={fieldErrors.subDistrictId2} />
           </div>
+
         </div>
       </div>
     </div>

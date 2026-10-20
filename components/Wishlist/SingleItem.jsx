@@ -6,11 +6,14 @@ import Link from "next/link";
 import { useWishlist } from "@/provider/WishlistProvider";
 import { useCart } from "@/provider/CartProvider";
 import { FaEye } from "react-icons/fa";
+import { slugify } from "@/utils/slugify";
 
 const SingleItem = ({ item }) => {
   const { removeFromWishlist } = useWishlist();
   const { addToCart, cartItems } = useCart();
   const productId = item.productId ?? item.id;
+  const productSlug = item.slug || (item.title ? slugify(item.title) : null);
+  const productUrl = productSlug ? `/product/${productSlug}` : `/shop-details/${productId}`;
 
   const handleRemove = () => {
     removeFromWishlist(productId);
@@ -58,7 +61,7 @@ const SingleItem = ({ item }) => {
         <div>
           <h3 className="text-sm font-medium text-gray-900">
             {/* ✅ use the SAME route everywhere */}
-            <Link href={`/shop-details/${productId}`} className="hover:text-teal-600">
+            <Link href={productUrl} className="hover:text-teal-600">
               {item.title}
             </Link>
           </h3>
@@ -87,7 +90,7 @@ const SingleItem = ({ item }) => {
         >
           <HiOutlineShoppingCart className="w-5 h-5" />
         </button> */}
-        <Link  href={`/shop-details/${item.id}`}>
+        <Link href={productUrl}>
           <button
             className={"p-2 rounded-lg transition-all text-teal-600 hover:bg-teal-50"}
           >

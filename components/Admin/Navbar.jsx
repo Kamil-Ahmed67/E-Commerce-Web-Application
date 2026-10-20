@@ -174,10 +174,10 @@ export default function Navbar({ initialUserName = '' }) {
                         {/* Order List */}
                         <Link
                             prefetch={false}
-                            href="/manage-order"
+                            href="/manage-order-demo"
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
-                            <div className={`flex items-center px-4 py-3 rounded-md hover:bg-gray-100 ${isActive('/manage-order') ? 'bg-gray-100 text-[#46c0c0]' : 'text-gray-700'}`}>
+                            <div className={`flex items-center px-4 py-3 rounded-md hover:bg-gray-100 ${isActive('/manage-order-demo') ? 'bg-gray-100 text-[#46c0c0]' : 'text-gray-700'}`}>
                                 <FaList className="w-5 h-5" />
                                 <span className="ml-3 text-sm font-medium">Order List</span>
                             </div>

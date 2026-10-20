@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export default function TermsAndConditions() {
     return (
-        <div className="min-h-screen pt-34 bg-gray-100 py-10 px-12">
+        <div className="min-h-screen pt-42 bg-gray-100 py-10 px-12">
             <div className="mx-auto bg-white rounded-lg shadow-md p-8">
                 <nav className="text-sm text-gray-500 mb-6">
                     <Link href="/" className="hover:underline">

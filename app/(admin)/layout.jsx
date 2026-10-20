@@ -10,6 +10,8 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import '../globals.css';
 import { BrandProvider } from '@/provider/BrandProvider';
 import { AuthContext, AuthProvider } from '@/provider/AuthProvider';
+import MingleLoader from '@/components/MingleLoader/MingleLoader';
+import { canAccessAdminPanel } from '@/lib/adminRoles';
 const Sidebar = dynamic(() => import('@/components/Admin/Sidebar'), { ssr: false });
 const Navbar = dynamic(() => import('@/components/Admin/Navbar'), { ssr: false });
 const Footer = dynamic(() => import('@/components/Admin/Footer'));
@@ -25,12 +27,6 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
   display: 'swap',
 });
-
-const InlineLoader = () => (
-  <div className="fixed left-0 top-0 z-50 flex h-screen w-screen items-center justify-center bg-white">
-    <div className="h-16 w-16 animate-spin rounded-full border-t-4 border-b-4 border-[#32BBAB]" />
-  </div>
-);
 
 function AuthChecker({ children }) {
   const { loginData } = useContext(AuthContext);
@@ -51,13 +47,13 @@ function AuthChecker({ children }) {
     if (!parsedData && !loginData) {
       const callbackUrl = window.location.pathname + window.location.search;
       router.push(`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
-    } else if ((parsedData || loginData)?.UserRole !== 'Admin') {
+    } else if (!canAccessAdminPanel((parsedData || loginData)?.UserRole)) {
       router.push('/');
     }
   }, [loginData, router]);
 
-  if (!loginData || loginData.UserRole !== 'Admin') {
-    return <InlineLoader />;
+  if (!loginData || !canAccessAdminPanel(loginData.UserRole)) {
+    return <MingleLoader />;
   }
 
   return <>{children}</>;
@@ -79,7 +75,7 @@ export default function AdminLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <Head>
-        <title>Admin Dashboard | Mingle Fashion</title>
+        <title>Admin Dashboard | Mingle In Style</title>
         <meta
           name="description"
           content="Administrative dashboard for managing your application"
@@ -90,7 +86,7 @@ export default function AdminLayout({ children }) {
 
       <body className="font-sans">
         {loading ? (
-          <InlineLoader />
+          <MingleLoader />
         ) : (
           <AuthProvider>
             <AuthChecker>

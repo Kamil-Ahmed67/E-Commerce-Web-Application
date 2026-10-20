@@ -1,6 +1,6 @@
 "use client";
 import { forwardRef, useState, useImperativeHandle, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 const CategoryItem = ({ category, selected, onChange }) => {
   return (
@@ -53,14 +53,24 @@ const CategoryDropdown = forwardRef(({ categories, selectedCategories = [], onCh
   const [internalSelected, setInternalSelected] = useState(selectedCategories);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // Detect active gender base route from /men, /men/[cat], /women, /women/[cat] or ?gender= param
+  const getActiveGender = () => {
+    if (pathname === '/men' || pathname.startsWith('/men/')) return '/men';
+    if (pathname === '/women' || pathname.startsWith('/women/')) return '/women';
+    const g = searchParams.get('gender');
+    if (g === 'Men') return '/men';
+    if (g === 'Women') return '/women';
+    return null;
+  };
 
   useImperativeHandle(ref, () => ({
     reset: () => {
       setInternalSelected([]);
       onChange([]);
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("category");
-      router.push(`?${params.toString()}`);
+      const genderRoute = getActiveGender();
+      router.push(genderRoute ?? '/shop');
     }
   }));
 
@@ -69,18 +79,23 @@ const CategoryDropdown = forwardRef(({ categories, selectedCategories = [], onCh
   }, [selectedCategories]);
 
   const handleCategoryChange = (categoryName, isSelected) => {
-    // For single selection (radio behavior)
     const newSelected = isSelected ? [categoryName] : [];
     setInternalSelected(newSelected);
     onChange(newSelected);
 
-    const params = new URLSearchParams(searchParams.toString());
-    if (isSelected) {
-      params.set("category", categoryName);
-    } else {
-      params.delete("category");
+    const genderRoute = getActiveGender(); // e.g. '/men' or null
+
+    if (!isSelected) {
+      router.push(genderRoute ?? '/shop');
+      return;
     }
-    router.push(`?${params.toString()}`);
+
+    // Category selected — keep gender if one is active
+    router.push(
+      genderRoute
+        ? `${genderRoute}/${encodeURIComponent(categoryName)}`
+        : `/shop/${encodeURIComponent(categoryName)}`
+    );
   };
 
   return (

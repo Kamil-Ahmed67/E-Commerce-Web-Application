@@ -8,8 +8,7 @@ const CheckoutAuthModal = ({ isOpen, onClose, onGuestCheckout }) => {
 
   const handleSignInClick = (e) => {
     e.preventDefault();
-    localStorage.setItem('redirectAfterLogin', window.location.pathname);
-    router.push('/signin');
+    router.push('/signin?redirect=' + encodeURIComponent(window.location.pathname));
     onClose();
   };
 

@@ -10,9 +10,9 @@ import toast from 'react-hot-toast';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import config from '@/config';
 import { useAuth } from '@/provider/AuthProvider';
-import { getBrands } from '@/lib/server/brandData';
+import { getAllBrands } from '@/lib/server/brandData';
 import { fetchCategories } from '@/lib/server/categoryData';
-import { getAllProducts } from '@/lib/server/getAllProducts';
+import { getAdminProducts } from '@/lib/server/getAllProducts';
 export default function POSProduct() {
     const [products, setProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
@@ -29,27 +29,35 @@ export default function POSProduct() {
     // Fetch data
     useEffect(() => {
         const fetchData = async () => {
-            try {
-                const [productsData, brandsData, categoriesData] = await Promise.all([
-                    getAllProducts(),
-                    getBrands(),
-                    fetchCategories(),
-                ]);
+            const [productsResult, brandsResult, categoriesResult] = await Promise.allSettled([
+                getAdminProducts(),
+                getAllBrands(),
+                fetchCategories(),
+            ]);
 
-                setProducts(productsData);
-                setFilteredProducts(productsData);
-                setBrands(brandsData);
+            if (productsResult.status === 'fulfilled') {
+                setProducts(productsResult.value);
+                setFilteredProducts(productsResult.value);
+            } else {
+                console.error('Error fetching products:', productsResult.reason);
+            }
 
-                const activeCategories = categoriesData.filter((c) => c.IsActive);
+            if (brandsResult.status === 'fulfilled') {
+                setBrands(brandsResult.value);
+            } else {
+                console.error('Error fetching brands:', brandsResult.reason);
+            }
+
+            if (categoriesResult.status === 'fulfilled') {
+                const activeCategories = categoriesResult.value.filter((c) => c.IsActive);
                 setCategories(activeCategories);
-            } catch (err) {
-                console.error('Error fetching data:', err);
+            } else {
+                console.error('Error fetching categories:', categoriesResult.reason);
             }
         };
 
         fetchData();
     }, []);
-    console.log('PRO_DATA', filteredProducts)
     // Filter logic
     useEffect(() => {
         let result = [...products];
@@ -65,20 +73,22 @@ export default function POSProduct() {
         }
 
         if (showNewArrivalsOnly) {
-            result = result.filter((p) => p.isNewArrival || p.status === "New");
+            result = result.filter((p) => p.isWebsite === false);
         }
         if (showWebsiteVisibility) {
             // Fix 2: add missing filter
             result = result.filter((p) => p.isWebsite === true);
         }
         setFilteredProducts(result);
-    }, [searchQuery, products, showNewArrivalsOnly,showWebsiteVisibility]);
+    }, [searchQuery, products, showNewArrivalsOnly, showWebsiteVisibility]);
 
     const toggleNewArrivalsFilter = () => {
         setShowNewArrivalsOnly((prev) => !prev);
+        setShowWebsiteVisibility(false);
     };
     const toggleWebsiteVisibilityFilter = () => {
         setShowWebsiteVisibility((prev) => !prev);
+        setShowNewArrivalsOnly(false);
     };
 
     const handleEdit = (product) => {
@@ -214,8 +224,8 @@ export default function POSProduct() {
                     >
                         <option value="">Select Brand</option>
                         {brands.map((b) => (
-                            <option key={b.Id} value={b.Name}>
-                                {b.Name}
+                            <option key={b.id} value={b.name}>
+                                {b.name}
                             </option>
                         ))}
                     </select>
@@ -300,12 +310,28 @@ export default function POSProduct() {
     return (
         <div className="overflow-x-auto">
             <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
         .custom-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+          scrollbar-width: thin;
+          scrollbar-color: #93c5fd #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, #60a5fa, #3b82f6);
+          border-radius: 8px;
+          border: 2px solid #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, #3b82f6, #2563eb);
+        }
+        .custom-scrollbar::-webkit-scrollbar-corner {
+          background: #f1f5f9;
         }
         .fixed-table {
           table-layout: fixed;
@@ -313,15 +339,15 @@ export default function POSProduct() {
         }
         .fixed-table th,
         .fixed-table td {
-          padding: 10px;
+          padding: 8px 6px;
           text-align: center;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          min-width: 100px;
+          min-width: 0;
         }
         .fixed-table th {
-          padding: 12px;
+          padding: 10px 6px;
         }
         @media (max-width: 768px) {
           .fixed-table {
@@ -360,219 +386,171 @@ export default function POSProduct() {
       `}</style>
 
             <div className="rounded-md font-roboto overflow-hidden shadow-sm border border-gray-200">
-                {/* Header + Search + Filter */}
-                <div className="bg-linear-to-r from-[#2c3e50] to-[#3498db] sticky top-0 z-20 shadow-md">
-                    <div className="px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <div className="relative min-w-55 max-w-xs">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg
-                                        className="h-4 w-4 text-gray-300"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                    >
-                                        <path
-                                            fillRule="evenodd"
-                                            d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                                            clipRule="evenodd"
-                                        />
-                                    </svg>
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Search products..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-10 py-2 bg-white border border-transparent rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                />
-                                {searchQuery && (
-                                    <button
-                                        onClick={() => setSearchQuery('')}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                                    >
-                                        <IoClose size={16} />
-                                    </button>
-                                )}
+
+                {/* ── Toolbar ── */}
+                <div className="bg-linear-to-r from-[#2c3e50] to-[#3498db] px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="relative min-w-55 max-w-xs">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg className="h-4 w-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                                </svg>
                             </div>
-
-                            <button
-                                onClick={toggleNewArrivalsFilter}
-                                className={`px-4 py-2 text-sm font-medium rounded-md border transition-colors ${showNewArrivalsOnly
-                                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                                    : 'bg-white/10 text-white border-white/30 hover:bg-white/20'
-                                    }`}
-                            >
-                                New Arrivals
-                            </button>
-                            <button
-                                onClick={toggleWebsiteVisibilityFilter}
-                                className={`px-4 py-2 text-sm font-medium rounded-md border transition-colors ${showWebsiteVisibility
-                                    ? 'bg-purple-700 text-white border-purple-700 hover:bg-purple-800'
-                                    : 'bg-white/10 text-white border-white/30 hover:bg-white/20'
-                                    }`}
-                            >
-                                Website Visibility
-                            </button>
+                            <input
+                                type="text"
+                                placeholder="Search products..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-10 py-2 bg-white border border-transparent rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            />
+                            {searchQuery && (
+                                <button onClick={() => setSearchQuery('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                    <IoClose size={16} />
+                                </button>
+                            )}
                         </div>
-
-                        <div className="flex items-center gap-4 text-white">
-                            <Link href="/manage-product" className="hover:text-blue-200 transition">
-                                <IoMdAddCircle size={24} />
-                            </Link>
-                            <button className="hover:text-yellow-300 transition">
-                                <FaFileExcel size={20} />
-                            </button>
-                        </div>
+                        <button
+                            onClick={toggleNewArrivalsFilter}
+                            className={`px-4 py-2 text-sm font-medium rounded-md border transition-colors ${showNewArrivalsOnly ? 'bg-blue-600 text-white border-blue-600' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
+                        >
+                            Website Invisible
+                        </button>
+                        <button
+                            onClick={toggleWebsiteVisibilityFilter}
+                            className={`px-4 py-2 text-sm font-medium rounded-md border transition-colors ${showWebsiteVisibility ? 'bg-purple-700 text-white border-purple-700' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
+                        >
+                            Website Visible
+                        </button>
                     </div>
-
-                    {/* Table Header */}
-                    <table className="fixed-table w-full border-collapse bg-white">
-                        <thead>
-                            <tr className="border-b border-gray-200 text-gray-700">
-                                <th className="text-sm font-semibold">Product</th>
-                                <th className="text-sm font-semibold">Description</th>
-                                <th className="text-sm font-semibold">Brand</th>
-                                <th className="text-sm font-semibold">Product Type</th>
-                                <th className="text-sm font-semibold">Category</th>
-                                <th className="text-sm font-semibold">Website</th>
-                                {/* <th className="text-sm font-semibold">Price</th>
-                <th className="text-sm font-semibold">Discounted</th>
-                <th className="text-sm font-semibold">Stock</th>
-                <th className="text-sm font-semibold">Sold</th> */}
-                                <th className="text-sm font-semibold">Status</th>
-                                <th className="text-sm font-semibold">Actions</th>
-                            </tr>
-                        </thead>
-                    </table>
+                    <div className="flex items-center gap-4 text-white">
+                        {/* <Link href="/manage-product" className="hover:text-blue-200 transition">
+                            <IoMdAddCircle size={24} />
+                        </Link> */}
+                        <button className="hover:text-yellow-300 transition">
+                            <FaFileExcel size={20} />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Table Body */}
-                <div className="max-h-105 overflow-y-auto custom-scrollbar bg-white">
-                    <table className="fixed-table w-full border-collapse">
-                        <tbody>
+                {/* ── Single table, sticky thead ── */}
+                <div className="custom-scrollbar overflow-x-auto max-h-[680px] overflow-y-auto">
+                    <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed' }}>
+                        <colgroup>
+                            <col style={{ width: '50px' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '18%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '8%' }} />
+                        </colgroup>
+                        <thead className="sticky top-0 z-10 bg-white shadow-sm">
+                            <tr className="border-b-2 border-gray-200">
+                                {[
+                                    { label: 'SL', align: 'text-center' },
+                                    { label: 'Product', align: 'text-left' },
+                                    { label: 'Description', align: 'text-left' },
+                                    { label: 'Brand', align: 'text-center' },
+                                    { label: 'Category', align: 'text-center' },
+                                    { label: 'Type', align: 'text-center' },
+                                    { label: 'Website', align: 'text-center' },
+                                    { label: 'Status', align: 'text-center' },
+                                    { label: 'Actions', align: 'text-center' },
+                                ].map(h => (
+                                    <th key={h.label} className={`py-3 px-3 text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap ${h.align}`}>
+                                        {h.label}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
                             {filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="py-20 text-center text-gray-400 text-xl font-medium">
+                                    <td colSpan={9} className="py-20 text-center text-gray-400 text-base font-medium">
                                         No products found
                                     </td>
                                 </tr>
                             ) : (
-                                filteredProducts.map((product) => (
-                                    <tr
-                                        key={product.id}
-                                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                                    >
-                                        <td data-label="Product" className="px-3 py-2 text-xs">
-                                            <div className="flex items-center gap-3">
+                                filteredProducts.map((product, index) => (
+                                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+
+                                        {/* SL */}
+                                        <td className="py-3 px-3 text-center text-xs text-gray-400 font-medium">
+                                            {index + 1}
+                                        </td>
+
+                                        {/* Product */}
+                                        <td className="py-3 px-3 text-xs text-gray-800 font-medium overflow-hidden text-ellipsis whitespace-nowrap text-left">
+                                            <div className="flex items-center justify-start gap-2">
                                                 {product.imgs?.thumbnails?.[0] && (
                                                     <Image
                                                         src={product.imgs.thumbnails[0]}
-                                                        alt={product.styleNo || "Product image"}
-                                                        width={40}
-                                                        height={40}
-                                                        className="w-10 h-10 object-cover rounded-md border border-gray-200"
+                                                        alt={product.styleNo || 'Product'}
+                                                        width={32} height={32}
+                                                        className="w-8 h-8 object-cover rounded border border-gray-200 flex-shrink-0"
                                                     />
                                                 )}
-                                                {renderEditableField('styleNo', product.styleNo, product.id)}
+                                                <span className="truncate">{renderEditableField('styleNo', product.styleNo, product.id)}</span>
                                             </div>
                                         </td>
-                                        <td data-label="Description" className="px-3 py-2 text-xs">
+
+                                        {/* Description */}
+                                        <td className="py-3 px-3 text-xs text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap text-left">
                                             {renderEditableField('description', product.description, product.id)}
                                         </td>
-                                        <td data-label="Brand" className="px-3 py-2 text-xs">
+
+                                        {/* Brand */}
+                                        <td className="py-3 px-3 text-xs text-center text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap">
                                             {renderEditableField('brand', product.brand, product.id)}
                                         </td>
 
-                                        <td data-label="Product Type" className="px-3 py-2 text-xs">
+                                        {/* Product Type */}
+                                        <td className="py-3 px-3 text-xs text-center text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap">
                                             {renderEditableField('productType', product.productType, product.id)}
                                         </td>
 
-                                        <td data-label="Category" className="px-3 py-2 text-xs">
+                                        {/* Category */}
+                                        <td className="py-3 px-3 text-xs text-center text-gray-600 overflow-hidden text-ellipsis whitespace-nowrap">
                                             {renderEditableField('category', product.category, product.id)}
                                         </td>
-                                        <td data-label="IsWebsite" className="px-2 py-2 text-xs">
+
+                                        {/* Website */}
+                                        <td className="py-3 px-3 text-center">
                                             {product.isWebsite ? (
-                                                <span className="inline-block w-20 border border-purple-500 px-1 py-1 text-xs font-semibold text-purple-700 bg-purple-100 rounded-xs">
-                                                    Visible
-                                                </span>
+                                                <span className="inline-block px-2 py-0.5 text-xs font-semibold text-purple-700 bg-purple-100 border border-purple-300 rounded">Visible</span>
                                             ) : (
-                                                <span className="inline-block border border-blue-500 w-20 px-1 py-1 text-xs font-semibold text-gray-700 bg-gray-100 rounded-xs">
-                                                    Hidden
-                                                </span>
+                                                <span className="inline-block px-2 py-0.5 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-300 rounded">Hidden</span>
                                             )}
                                         </td>
-                                        {/* <td data-label="Price" className="px-3 py-2 text-xs">
-                      {renderEditableField('price', product.price, product.id)}
-                    </td> */}
 
-                                        {/* <td data-label="Discounted" className="px-3 py-2 text-xs">
-                      {renderEditableField('discountedPrice', product.discountedPrice, product.id)}
-                    </td> */}
-
-                                        {/* <td data-label="Stock" className="px-3 py-2 text-xs">
-                      {renderEditableField('StockQty', product.StockQty, product.id)}
-                    </td> */}
-
-                                        {/* <td data-label="Sold" className="px-3 py-2 text-xs">
-                      {renderEditableField('SellQty', product.SellQty, product.id)}
-                    </td> */}
-
-                                        <td data-label="Status" className="px-2 py-2 text-xs">
+                                        {/* Status */}
+                                        <td className="py-3 px-3 text-center">
                                             {product.isEditing ? (
                                                 renderEditableField('status', product.status, product.id)
                                             ) : product.status === 'New' ? (
-                                                <span className="inline-block w-20 border border-green-500 px-1 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-xs">
-                                                    New Arrival
-                                                </span>
+                                                <span className="inline-block px-2 py-0.5 text-xs font-semibold text-green-700 bg-green-100 border border-green-300 rounded">New Arrival</span>
                                             ) : (
-                                                <span className="inline-block border border-blue-500 w-23.5 px-1 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-xs">
-                                                    Regular
-                                                </span>
+                                                <span className="inline-block px-2 py-0.5 text-xs font-semibold text-blue-700 bg-blue-100 border border-blue-300 rounded">Regular</span>
                                             )}
                                         </td>
 
-                                        <td data-label="Actions" className="px-3 py-2 text-xs">
+                                        {/* Actions */}
+                                        <td className="py-3 px-3 text-center">
                                             {product.isEditing ? (
                                                 <div className="flex justify-center gap-2">
-                                                    <button
-                                                        onClick={() => handleSave(product.id)}
-                                                        className="p-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition"
-                                                        title="Save"
-                                                    >
-                                                        <FaCheck size={14} />
+                                                    <button onClick={() => handleSave(product.id)} className="p-1.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition" title="Save">
+                                                        <FaCheck size={12} />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleCancel(product.id)}
-                                                        className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition"
-                                                        title="Cancel"
-                                                    >
-                                                        <IoClose size={16} />
+                                                    <button onClick={() => handleCancel(product.id)} className="p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition" title="Cancel">
+                                                        <IoClose size={14} />
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <div className="flex justify-center">
-                                                    {/* <button
-                                                        onClick={() => handleEdit(product)}
-                                                        className="p-2 text-blue-600 hover:text-blue-800 transition"
-                                                        title="Quick Edit"
-                                                    >
-                                                        <FaEdit size={15} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteClick(product.id)}
-                                                        className="p-2 text-red-600 hover:text-red-800 transition"
-                                                        title="Delete"
-                                                    >
-                                                        <FaTrash size={15} />
-                                                    </button> */}
-                                                    <Link
-                                                        href={`/update-product/${product.id}`}
-                                                        className="p-2 text-indigo-600 hover:text-indigo-800 transition"
-                                                        title="Full Edit"
-                                                    >
-                                                        <FaRegEdit size={15} />
-                                                    </Link>
-                                                </div>
+                                                <Link href={`/update-product/${product.id}`} className="inline-flex p-1.5 text-indigo-600 hover:text-indigo-800 transition" title="Edit">
+                                                    <FaRegEdit size={15} />
+                                                </Link>
                                             )}
                                         </td>
                                     </tr>

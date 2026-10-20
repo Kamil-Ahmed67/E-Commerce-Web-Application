@@ -1,12 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiPhone, FiMail, FiMapPin } from 'react-icons/fi';
-import { FaFacebookF, FaInstagram, FaTwitter } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import config from '../../../config';
-const Contact = () => {
+import { getBannersByAccessKey } from '@/lib/server/bannerData';
+import { trackEvent } from '@/lib/trackEvent';
+
+export default function Contact() {
+  const [heroImage, setHeroImage] = useState(null);
+  const [storeImage, setStoreImage] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -14,20 +19,55 @@ const Contact = () => {
     phone: '',
     message: ''
   });
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [heroBanners, storeBanners] = await Promise.all([
+          getBannersByAccessKey('Contact Hero'),
+          getBannersByAccessKey('Contact Store'),
+        ]);
+        setHeroImage(heroBanners.find(b => b.isActive)?.bannerImage?.[0] || null);
+        setStoreImage(storeBanners.find(b => b.isActive)?.bannerImage?.[0] || null);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    if (name === 'phone' && value && !/^\d*$/.test(value)) return;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const validate = () => {
+    const errs = {};
+    if (!formData.name.trim()) errs.name = 'Name is required';
+    if (!formData.email.trim()) {
+      errs.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errs.email = 'Enter a valid email address';
+    }
+    if (!formData.subject.trim()) errs.subject = 'Subject is required';
+    if (!formData.phone.trim()) {
+      errs.phone = 'Phone number is required';
+    } else if (!/^\d{6,15}$/.test(formData.phone)) {
+      errs.phone = 'Enter 6–15 digits only';
+    }
+    if (!formData.message.trim()) errs.message = 'Message is required';
+    return errs;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Basic validation
-    if (!formData.name || !formData.email || !formData.message) {
-      alert('Please fill in all required fields (Name, Email, Message).');
+    const errs = validate();
+    if (Object.keys(errs).length) {
+      setErrors(errs);
       return;
     }
 
@@ -60,7 +100,8 @@ const Contact = () => {
 
       toast.success('Your Message Has Been Received!');
 
-      // Reset form
+      trackEvent('contact', { email: formData.email, phone: formData.phone, subject: formData.subject });
+
       setFormData({
         name: '',
         email: '',
@@ -68,19 +109,19 @@ const Contact = () => {
         phone: '',
         message: ''
       });
+
     } catch (error) {
       console.error('Error saving message:', error);
-      alert('Error sending message: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.error('Failed to send message');
     }
   };
-
   return (
-    <div className='pt-16 manrope lg:pt-25'>
+    <div className='pt-24 manrope lg:pt-[132px]'>
       {/* Hero Banner */}
       <section className="relative w-full overflow-hidden">
         <div className="relative w-full">
           <Image
-            src="/images/about/banner.jpg"
+            src={heroImage || "/images/about/banner.jpg"}
             alt="Get In Touch Background"
             width={1920}
             height={800}
@@ -90,7 +131,7 @@ const Contact = () => {
           <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/20 to-transparent"></div>
         </div>
 
-        <div className="absolute inset-0 z-10 flex items-center justify-center text-center px-4">
+        {/* <div className="absolute inset-0 z-10 flex items-center justify-center text-center px-4">
           <div className="text-white max-w-xl lg:max-w-2xl">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
               Get In Touch
@@ -99,7 +140,7 @@ const Contact = () => {
               We&apos;d love to hear from you. Let us know how we can help.
             </p>
           </div>
-        </div>
+        </div> */}
       </section>
 
       {/* Contact Section */}
@@ -121,14 +162,14 @@ const Contact = () => {
                       id="name"
                       value={formData.name}
                       onChange={handleChange}
-                      required
                       placeholder="Enter your name"
-                      className="border border-gray-300 bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md"
+                      className={`border bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md ${errors.name ? 'border-red-400' : 'border-gray-300'}`}
                     />
+                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                   </div>
                   <div className="w-full">
                     <label htmlFor="subject" className="block mb-2.5 font-medium">
-                      Subject
+                      Subject <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -137,8 +178,9 @@ const Contact = () => {
                       value={formData.subject}
                       onChange={handleChange}
                       placeholder="Type your subject"
-                      className="border border-gray-300 bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md"
+                      className={`border bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md ${errors.subject ? 'border-red-400' : 'border-gray-300'}`}
                     />
+                    {errors.subject && <p className="text-red-500 text-xs mt-1">{errors.subject}</p>}
                   </div>
                 </div>
                 <div className="flex flex-col lg:flex-row text-gray-700 gap-5 sm:gap-8 mb-5">
@@ -147,19 +189,19 @@ const Contact = () => {
                       Email <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="text"
+                      type="email"
                       name="email"
                       id="email"
                       value={formData.email}
                       onChange={handleChange}
-                      required
                       placeholder="Enter your email"
-                      className="border border-gray-300 bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md"
+                      className={`border bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md ${errors.email ? 'border-red-400' : 'border-gray-300'}`}
                     />
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                   </div>
                   <div className="w-full">
                     <label htmlFor="phone" className="block mb-2.5 font-medium">
-                      Phone
+                      Phone <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
@@ -167,9 +209,12 @@ const Contact = () => {
                       id="phone"
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="Enter your phone"
-                      className="border border-gray-300 bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md"
+                      placeholder="Enter your phone number"
+                      inputMode="numeric"
+                      maxLength={15}
+                      className={`border bg-gray-50 placeholder:text-gray-500 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md ${errors.phone ? 'border-red-400' : 'border-gray-300'}`}
                     />
+                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                   </div>
                 </div>
                 <div className="mb-7.5">
@@ -182,10 +227,10 @@ const Contact = () => {
                     rows={5}
                     value={formData.message}
                     onChange={handleChange}
-                    required
                     placeholder="Type your message"
-                    className="border border-gray-300 bg-gray-50 placeholder:text-gray-500 w-full p-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md"
+                    className={`border bg-gray-50 placeholder:text-gray-500 w-full p-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-1 focus:ring-black rounded-md ${errors.message ? 'border-red-400' : 'border-gray-300'}`}
                   ></textarea>
+                  {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
                 </div>
                 <button
                   type="submit"
@@ -229,20 +274,20 @@ const Contact = () => {
 
                 {/* Social Icons */}
                 <div className="mt-6 pt-6 border-t border-gray-200 flex space-x-4">
-                  <a href="#" className="text-gray-600 hover:text-black">
+                  <button onClick={() => window.open('https://web.facebook.com/mingleinstyle/', '_blank')} className="text-gray-600 hover:text-black cursor-pointer">
                     <FaFacebookF className="w-5 h-5" />
-                  </a>
-                  <a href="#" className="text-gray-600 hover:text-black">
+                  </button>
+                  <button onClick={() => window.open('https://www.instagram.com/mingleinstyle/', '_blank')} className="text-gray-600 hover:text-black cursor-pointer">
                     <FaInstagram className="w-5 h-5" />
-                  </a>
-                  <a href="#" className="text-gray-600 hover:text-black">
-                    <FaTwitter className="w-5 h-5" />
-                  </a>
+                  </button>
+                  <button onClick={() => window.open('https://www.tiktok.com/@mingleinstyle', '_blank')} className="text-gray-600 hover:text-black cursor-pointer">
+                    <FaTiktok className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
 
               {/* Fashion Cards */}
-              <div className="relative h-64 w-full overflow-hidden shadow-lg rounded-sm">
+              {/* <div className="relative h-64 w-full overflow-hidden shadow-lg rounded-sm">
                 <Image
                   src="/images/about/consultant.jpg"
                   alt="Style Consultation"
@@ -260,11 +305,11 @@ const Contact = () => {
                     </button>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               <div className="relative h-64 w-full overflow-hidden shadow-lg rounded-sm">
                 <Image
-                  src="/images/about/store.jpg"
+                  src={storeImage || "/images/about/store.jpg"}
                   alt="Store Locations"
                   fill
                   className="object-cover"
@@ -288,6 +333,5 @@ const Contact = () => {
       </section>
     </div>
   );
-};
+}
 
-export default Contact;

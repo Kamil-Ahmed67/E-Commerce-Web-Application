@@ -44,8 +44,6 @@ export const initiateSSLCommerzPayment = async (
       }),
       ...additionalData
     };
-    console.log(payload);
-    debugger;
     const response = await fetch(`${config.API_BASE_URL}api/payment/initiate`, {
       method: 'POST',
       headers: {

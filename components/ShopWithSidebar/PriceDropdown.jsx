@@ -26,6 +26,15 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
   const [range, setRange] = useState(priceRange);
   const [dragging, setDragging] = useState(null);
 
+  // Free-typed text for the inputs — kept separate from `range` so a user can
+  // clear the field and type a fresh number without it snapping back to 0
+  // (a controlled input driven straight off the clamped numeric value would
+  // coerce "" to 0 on every keystroke). Clamping only happens on commit.
+  const [minText, setMinText] = useState(String(priceRange.from));
+  const [maxText, setMaxText] = useState(String(priceRange.to));
+  const minFocusedRef = useRef(false);
+  const maxFocusedRef = useRef(false);
+
   const trackRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -34,6 +43,8 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
     reset: () => {
       const defaultRange = { from: 0, to: MAX_PRICE };
       setRange(defaultRange);
+      setMinText(String(defaultRange.from));
+      setMaxText(String(defaultRange.to));
       onChange(defaultRange);
     },
   }));
@@ -41,6 +52,8 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
   /* ---- sync parent changes ------------------------------------------- */
   useEffect(() => {
     setRange(priceRange);
+    if (!minFocusedRef.current) setMinText(String(priceRange.from));
+    if (!maxFocusedRef.current) setMaxText(String(priceRange.to));
   }, [priceRange]);
 
   /* ---- convert pixel position → price --------------------------------- */
@@ -154,13 +167,18 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
     onChange(newRange);
   };
 
-  /* ---- input change --------------------------------------------------- */
-  const handleInput = (type, raw) => {
+  /* ---- commit a typed value on blur / Enter ---------------------------- */
+  const commitInput = (type, raw) => {
     const value = Number(raw);
-    if (Number.isNaN(value)) return;
-
     let newFrom = range.from;
     let newTo = range.to;
+
+    if (!raw.trim() || Number.isNaN(value)) {
+      // Empty or invalid — just revert the text to the last committed value
+      setMinText(String(range.from));
+      setMaxText(String(range.to));
+      return;
+    }
 
     if (type === "min") {
       newFrom = clamp(roundToStep(value), 0, range.to - STEP);
@@ -170,11 +188,13 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
 
     const newRange = { from: newFrom, to: newTo };
     setRange(newRange);
+    setMinText(String(newRange.from));
+    setMaxText(String(newRange.to));
     onChange(newRange);
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-sm p-6 font-semibold">
+    <div className="border-b border-gray-200 py-4 font-semibold">
       {/* Header */}
       <button
         type="button"
@@ -186,8 +206,8 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
         <h2 className="text-base text-gray-800">Price</h2>
 
         <svg
-          className={`h-5 w-5 text-[#32BBAB] transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
+          className={`h-5 w-5 text-gray-700 transition-transform duration-200 ${
+            isOpen ? "" : "rotate-180"
           }`}
           fill="none"
           stroke="currentColor"
@@ -198,7 +218,7 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M19 9l-7 7-7-7"
+            d="M5 15l7-7 7 7"
           />
         </svg>
       </button>
@@ -270,8 +290,11 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
                   min={0}
                   max={range.to - STEP}
                   step={STEP}
-                  value={range.from}
-                  onChange={(e) => handleInput("min", e.target.value)}
+                  value={minText}
+                  onChange={(e) => setMinText(e.target.value)}
+                  onFocus={() => { minFocusedRef.current = true; }}
+                  onBlur={(e) => { minFocusedRef.current = false; commitInput("min", e.target.value); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
                   className="w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 text-sm outline-none focus:border-[#32BBAB] focus:ring-2 focus:ring-[#32BBAB]"
                   aria-label="Minimum price"
                 />
@@ -293,8 +316,11 @@ const PriceDropdown = forwardRef(({ priceRange, onChange }, ref) => {
                   min={range.from + STEP}
                   max={MAX_PRICE}
                   step={STEP}
-                  value={range.to}
-                  onChange={(e) => handleInput("max", e.target.value)}
+                  value={maxText}
+                  onChange={(e) => setMaxText(e.target.value)}
+                  onFocus={() => { maxFocusedRef.current = true; }}
+                  onBlur={(e) => { maxFocusedRef.current = false; commitInput("max", e.target.value); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
                   className="w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 text-sm outline-none focus:border-[#32BBAB] focus:ring-2 focus:ring-[#32BBAB]"
                   aria-label="Maximum price"
                 />

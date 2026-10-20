@@ -7,7 +7,7 @@ const BestSellingProductCard = ({ product, isAboveTheFold = false }) => {
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="group bg-white border border-gray-200 hover:border-gray-300 shadow-sm transition-all duration-300 w-full flex flex-col">
+    <div className="product-card group bg-white border border-gray-200 hover:border-gray-300 shadow-sm transition-all duration-300 w-full flex flex-col">
       {/* Image section */}
       <div className="relative aspect-3/4 bg-gray-100 overflow-hidden">
         {/* New badge */}
@@ -16,7 +16,7 @@ const BestSellingProductCard = ({ product, isAboveTheFold = false }) => {
             New
           </div>
         )}
-        <Link href={`/shop-details/${product.id}`} className="block w-full h-full">
+        <Link href={`/product/${product.slug}`} className="block w-full h-full">
           {imageError ? (
             <div className="flex items-center justify-center w-full h-full text-gray-400 text-sm">
               Image Not Available
@@ -27,7 +27,7 @@ const BestSellingProductCard = ({ product, isAboveTheFold = false }) => {
                 src={product.image ||'Image'}
                 alt={product.description || 'Item Name'}
                 fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                className="object-contain group-hover:scale-105 transition-transform duration-500"
                 onError={() => setImageError(true)}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 priority={isAboveTheFold}
@@ -37,9 +37,9 @@ const BestSellingProductCard = ({ product, isAboveTheFold = false }) => {
         </Link>
 
         {/* View Details Button on Hover */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/30">
+        <div className="absolute inset-0 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 bg-black/30">
           <Link
-            href={`/shop-details/${product.id}`}
+            href={`/product/${product.slug}`}
             className="bg-white text-black text-xs font-medium px-4 py-2 uppercase tracking-wide hover:bg-black hover:text-white transition-all"
           >
             View Details
@@ -50,7 +50,7 @@ const BestSellingProductCard = ({ product, isAboveTheFold = false }) => {
       {/* Text content */}
       <div className="p-3 flex flex-col grow">
         <h3 className="text-sm font-semibold text-gray-900 mb-1 leading-tight line-clamp-2">
-          <Link href={`/shop-details/${product.id}`}>{product.description}</Link>
+          <Link href={`/product/${product.slug}`}>{product.description}</Link>
         </h3>
         <p className="text-xs text-gray-500 capitalize mb-1.5">{product.productType}</p>
 

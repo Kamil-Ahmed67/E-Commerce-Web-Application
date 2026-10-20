@@ -2,7 +2,7 @@ import FeatureManage from "@/components/Admin/FeatureManage";
 
 export const metadata = {
     title: "Feature Manage | Mingle",
-    description: "This is Feature Management Of Mingle Fashion",
+    description: "This is Feature Management Of Mingle In Style",
 };
 
 export default function AdminPage() {

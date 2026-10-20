@@ -46,6 +46,15 @@ export const isWomenCategory = (category) => {
 };
 
 /**
+ * Check if category belongs to Unisex
+ * @param {string} category
+ * @returns {boolean}
+ */
+export const isUnisexCategory = (category) => {
+    return normalizeGender(category) === 'unisex';
+};
+
+/**
  * Get gender display name from category
  * @param {string} category 
  * @returns {string}

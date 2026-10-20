@@ -1,11 +1,14 @@
 "use client";
 import Image from 'next/image';
 import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import config from '@/config';
 import { useAuth } from '@/provider/AuthProvider';
 import { fetchCategories } from '@/lib/server/categoryData';
-import { getBrands } from '@/lib/server/brandData';
+import { getAllBrands } from '@/lib/server/brandData';
 import toast from 'react-hot-toast';
+import { compressAndConvert, IMAGE_PRESETS } from '@/lib/image/compressImage';
+import { ProcessingModal, SavingModal } from '@/components/Admin/UploadModals';
 
 export default function ProductManage() {
   const { loginData } = useAuth();
@@ -16,6 +19,9 @@ export default function ProductManage() {
   const [sizeOptions, setSizeOptions] = useState([]);
 
   const [discountPercentages, setDiscountPercentages] = useState([]);
+
+  const [processingStep, setProcessingStep] = useState(null);
+  const [savingStep, setSavingStep] = useState(null);
 
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showBrandDropdown, setShowBrandDropdown] = useState(false);
@@ -52,10 +58,10 @@ export default function ProductManage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const fetchedBrands = await getBrands();
+      const fetchedBrands = await getAllBrands();
       setBrands(fetchedBrands);
       const fetchedCategories = await fetchCategories();
-      setCategories(fetchedCategories.filter(c => c.IsActive));
+      setCategories(fetchedCategories);
     };
     fetchData();
   }, []);
@@ -136,21 +142,31 @@ export default function ProductManage() {
     });
   };
 
-  const handleFileSelect = (index, files) => {
+  const handleFileSelect = async (index, files) => {
     if (!files?.length) return;
+    try {
+      setProcessingStep('compressing');
+      const webpFiles = await Promise.all(
+        Array.from(files).map(f => compressAndConvert(f, IMAGE_PRESETS.product))
+      );
+      setProcessingStep('done');
+      setTimeout(() => setProcessingStep(null), 1200);
 
-    const newFiles = Array.from(files);
-    const newPreviews = newFiles.map(file => URL.createObjectURL(file));
-
-    setProducts(prev => {
-      const next = [...prev];
-      next[index] = {
-        ...next[index],
-        pendingFiles: [...(next[index].pendingFiles || []), ...newFiles],
-        previewUrls: [...(next[index].previewUrls || []), ...newPreviews]
-      };
-      return next;
-    });
+      const newPreviews = webpFiles.map(f => URL.createObjectURL(f));
+      setProducts(prev => {
+        const next = [...prev];
+        next[index] = {
+          ...next[index],
+          pendingFiles: [...(next[index].pendingFiles || []), ...webpFiles],
+          previewUrls:  [...(next[index].previewUrls  || []), ...newPreviews],
+        };
+        return next;
+      });
+    } catch (err) {
+      setProcessingStep(null);
+      toast.error('Image processing failed');
+      console.error('Processing error:', err);
+    }
   };
 
   const removePreviewImage = (index, imgIndex) => {
@@ -171,20 +187,17 @@ export default function ProductManage() {
     });
   };
   const uploadFilesToDrive = async (files) => {
-    const formData = new FormData();
-
-    files.forEach(file => formData.append("file", file));
-
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error);
-
-    return data.paths.map(p => p.path);
+    const urls = [];
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('label', 'product');
+      const res = await fetch('/api/uploadBanner', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      urls.push(data.filePath);
+    }
+    return urls;
   };
 
   const handleSubmit = async (index) => {
@@ -194,14 +207,16 @@ export default function ProductManage() {
       toast.error("Title, Category and Price are required");
       return;
     }
-    let driveUrls = [];
 
-    if (item.pendingFiles.length > 0) {
-      driveUrls = await uploadFilesToDrive(item.pendingFiles);
-    }
+    setSavingStep('uploading');
     try {
-      const formData = new FormData();
+      let driveUrls = [];
+      if (item.pendingFiles.length > 0) {
+        driveUrls = await uploadFilesToDrive(item.pendingFiles);
+      }
 
+      setSavingStep('saving');
+      const formData = new FormData();
       formData.append("Title", item.Title.trim());
       formData.append("Type", item.Type.trim());
       formData.append("Gender", item.Gender || "");
@@ -219,47 +234,37 @@ export default function ProductManage() {
       formData.append("CompanyId", config.CompanyId);
       formData.append("ImageUrls", driveUrls.join(","));
       formData.append("EntryBy", loginData?.Name || "");
+
       const res = await fetch(`${config.API_BASE_URL}api/EItem/AddProductWithImages`, {
         method: 'POST',
-        headers: {
-          TenantId: config.tenantId
-        },
-        body: formData
+        headers: { TenantId: config.tenantId },
+        body: formData,
       });
 
       if (!res.ok) {
-        let msg = await res.text().catch(() => "Unknown error");
+        const msg = await res.text().catch(() => "Unknown error");
         throw new Error(msg);
       }
 
-      toast.success("Product saved successfully!");
-
-      item.previewUrls.forEach(url => URL.revokeObjectURL(url));
-
-      setProducts(prev => {
-        const next = [...prev];
-        next[index] = {
-          Title: '',
-          Type: '',
-          Gender: '',
-          Sizes: '',
-          Colors: '',
-          Brand: '',
-          Reviews: 0,
-          Price: 0,
-          DiscountedPrice: 0,
-          IsNewArraival: false,
-          Description: '',
-          AdditionalDescription: '',
-          StockQty: 0,
-          SellQty: 0,
-          pendingFiles: [],
-          previewUrls: []
-        };
-        return next;
-      });
+      setSavingStep('done');
+      setTimeout(() => {
+        setSavingStep(null);
+        toast.success("Product saved successfully!");
+        item.previewUrls.forEach(url => URL.revokeObjectURL(url));
+        setProducts(prev => {
+          const next = [...prev];
+          next[index] = {
+            Title: '', Type: '', Gender: '', Sizes: '', Colors: '', Brand: '',
+            Reviews: 0, Price: 0, DiscountedPrice: 0, IsNewArraival: false,
+            Description: '', AdditionalDescription: '', StockQty: 0, SellQty: 0,
+            pendingFiles: [], previewUrls: [],
+          };
+          return next;
+        });
+      }, 1500);
 
     } catch (err) {
+      setSavingStep(null);
       console.error("Save error:", err);
       toast.error(err.message || "Failed to save product");
     }
@@ -357,18 +362,18 @@ export default function ProductManage() {
                   </button>
                   {showTypeDropdown && (
                     <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-sm border border-gray-200 max-h-60 overflow-auto">
-                      {categories.map((category) => (
+                      {categories.map((category, i) => (
                         <div
-                          key={category.Id}
+                          key={i}
                           onClick={() => {
                             const newProducts = [...products];
-                            newProducts[index] = { ...newProducts[index], Type: category.Title };
+                            newProducts[index] = { ...newProducts[index], Type: category.ProductType };
                             setProducts(newProducts);
                             setShowTypeDropdown(false);
                           }}
-                          className={`px-4 py-2 hover:bg-[#e6f0ff] cursor-pointer ${product.Type === category.Title ? 'bg-[#cce0ff]' : ''}`}
+                          className={`px-4 py-2 hover:bg-[#e6f0ff] cursor-pointer ${product.Type === category.ProductType ? 'bg-[#cce0ff]' : ''}`}
                         >
-                          {category.Title}
+                          {category.ProductType}
                         </div>
                       ))}
                     </div>
@@ -422,8 +427,8 @@ export default function ProductManage() {
                     onClick={() => setShowBrandDropdown(!showBrandDropdown)}
                     className="w-full px-3 py-2 text-left border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white flex justify-between items-center"
                   >
-                    <span className={product.Brand ? "text-gray-800" : "text-gray-400"}>
-                      {product.Brand ? formatBrandName(product.Brand) : "Select a brand"}
+                    <span className={product.Brand ? 'text-gray-800' : 'text-gray-400'}>
+                      {product.Brand ? formatBrandName(product.Brand) : 'Select a brand'}
                     </span>
                     <svg
                       className={`w-5 h-5 text-gray-400 duration-500 transition-transform ${showBrandDropdown ? 'rotate-180 text-teal-500' : ''}`}
@@ -438,25 +443,16 @@ export default function ProductManage() {
                     <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-sm border border-gray-200 max-h-60 overflow-auto">
                       {brands.map((brand) => (
                         <div
-                          key={brand.Id}
+                          key={brand.id}
                           onClick={() => {
                             const newProducts = [...products];
-                            newProducts[index] = { ...newProducts[index], Brand: brand.Name };
+                            newProducts[index] = { ...newProducts[index], Brand: brand.name };
                             setProducts(newProducts);
                             setShowBrandDropdown(false);
                           }}
-                          className={`px-4 py-2 hover:bg-[#e6f0ff] cursor-pointer flex items-center ${product.Brand === brand.Name ? 'bg-[#cce0ff]' : ''}`}
+                          className={`px-4 py-2 hover:bg-[#e6f0ff] cursor-pointer flex items-center ${product.Brand === brand.name ? 'bg-[#cce0ff]' : ''}`}
                         >
-                          {brand.Logo && (
-                            <Image
-                              src={brand.Logo}
-                              alt={brand.Name}
-                              width={28}
-                              height={28}
-                              className="w-6 h-6 mr-2 object-contain"
-                            />
-                          )}
-                          <span>{formatBrandName(brand.Name)}</span>
+                          <span>{formatBrandName(brand.name)}</span>
                         </div>
                       ))}
                     </div>
@@ -654,7 +650,7 @@ export default function ProductManage() {
                       <p className="text-sm text-gray-500 mt-2">
                         <span className="font-semibold">Click to upload</span> or drag and drop
                       </p>
-                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                      <p className="text-xs text-gray-500">PNG, JPG or WebP, up to 10MB each · Any resolution — automatically resized &amp; compressed</p>
                     </div>
                     <input
                       type="file"
@@ -729,6 +725,12 @@ export default function ProductManage() {
           </div>
         ))}
       </div>
+      <AnimatePresence>
+        {processingStep && <ProcessingModal step={processingStep} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {savingStep && <SavingModal step={savingStep} />}
+      </AnimatePresence>
     </section>
   );
 }

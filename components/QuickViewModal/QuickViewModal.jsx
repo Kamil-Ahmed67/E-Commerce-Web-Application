@@ -9,8 +9,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/provider/CartProvider';
 import { useWishlist } from '@/provider/WishlistProvider';
-import VTOModal from '@/components/VTOModal/VTOModal';
 import { getProductById } from '@/lib/server/getProductById';
+import { trackEvent } from '@/lib/trackEvent';
 
 const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
     const [previewImg, setPreviewImg] = useState(0);
@@ -21,13 +21,12 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
     const [availableSizes, setAvailableSizes] = useState([]);
     const [availableColors, setAvailableColors] = useState([]);
     const [isWishlisted, setIsWishlisted] = useState(false);
-    const [showVTOModal, setShowVTOModal] = useState(false);
     const [showFullDesc, setShowFullDesc] = useState(false);
     const [product, setProduct] = useState(initialProduct);
     // const [loading, setLoading] = useState(false);
 
     const router = useRouter();
-    const { addToCart } = useCart();
+    const { addToCart, setBuyNowItem } = useCart();
     const { addToWishlist, removeFromWishlist, isInWishlist, subscribeToWishlistChanges } = useWishlist();
 
     // Fetch full product details when modal opens
@@ -37,7 +36,7 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
                 // setLoading(true);
                 try {
                     const fullProduct = await getProductById(initialProduct.id);
-                    setProduct(fullProduct);
+                    setProduct({ ...fullProduct, slug: initialProduct.slug || fullProduct.slug });
                 } catch (error) {
                     console.error('Error fetching product details:', error);
                     toast.error('Failed to load product details');
@@ -185,6 +184,21 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
             quantity,
         }, true);
 
+        trackEvent('add_to_cart', {
+            value: selectedVariant.sellingPrice * quantity,
+            contentIds: [String(product.id)],
+            contents: [{
+                id: product.id,
+                title: product.title,
+                price: selectedVariant.sellingPrice,
+                quantity,
+                brand: product.brand,
+                category: product.productType,
+                sku: selectedVariant?.sku,
+                stock: variantStock,
+            }],
+        });
+
         toast.success('Added to cart!');
         onClose();
     };
@@ -210,6 +224,19 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
                 brand: product.brand,
                 imgs: product.imgs,
             });
+            trackEvent('add_to_wishlist', {
+                value: product.price,
+                contentIds: [String(product.id)],
+                contents: [{
+                    id: product.id,
+                    title: product.title,
+                    price: product.price,
+                    quantity: 1,
+                    brand: product.brand,
+                    category: product.productType,
+                    stock: totalStock,
+                }],
+            });
             toast.success("Item added to wishlist!");
         }
     };
@@ -225,7 +252,7 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
             return;
         }
 
-        addToCart({
+        setBuyNowItem({
             id: product.id,
             title: product.title,
             variantId: selectedVariant.variantId,
@@ -239,7 +266,8 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
             color: selectedColor,
             size: selectedSize,
             quantity,
-        }, false);
+            checked: true,
+        });
 
         onClose();
         router.push('/checkout');
@@ -290,22 +318,22 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
             />
 
             {/* Modal container */}
-            <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="flex items-start md:items-center justify-center min-h-screen p-2 sm:p-4">
                 <div
-                    className="relative bg-white rounded-xs shadow-xl w-full max-w-5xl mx-auto overflow-hidden transform transition-all"
+                    className="relative bg-white rounded-xs shadow-xl w-full max-w-5xl mx-auto overflow-hidden transform transition-all mt-2 md:mt-0"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Close button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors"
+                        className="absolute top-3 right-3 z-10 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors"
                         aria-label="Close modal"
                     >
                         <FaTimes className="text-gray-600" />
                     </button>
 
                     {/* Modal content */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 max-h-[90vh] overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 p-4 md:p-6 max-h-[92vh] overflow-y-auto">
                         {/* Product Images */}
                         <div className="space-y-4">
                             <div className="relative w-full bg-white rounded-xs border border-gray-200 overflow-hidden" style={{ aspectRatio: '4 / 5' }}>
@@ -545,14 +573,29 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
                                     </button>
                                 </div>
                                 <Link
-                                    href={`/shop-details/${product.id}`}
+                                    href={`/product/${product.slug}`}
                                     className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded font-medium transition-colors duration-300 text-center text-sm"
                                     onClick={onClose}
                                 >
                                     View Full Details
                                 </Link>
                                 <button
-                                    onClick={() => setShowVTOModal(true)}
+                                    onClick={() => {
+                                        trackEvent('start_trial', {
+                                            contentIds: [String(product.id)],
+                                            contents: [{
+                                                id: product.id,
+                                                title: product.title,
+                                                price: product.price,
+                                                quantity: 1,
+                                                brand: product.brand,
+                                                category: product.productType,
+                                                stock: totalStock,
+                                            }],
+                                        });
+                                        onClose();
+                                        router.push(`/vto/${product.id}`);
+                                    }}
                                     disabled={totalStock === 0}
                                     className={`w-full flex items-center justify-center gap-2 py-3 px-6 rounded-md font-bold text-[#32BBAB] border-2 border-[#32BBAB] transition-all duration-300 shadow-sm group text-sm ${totalStock === 0
                                             ? 'opacity-50 cursor-not-allowed'
@@ -594,15 +637,6 @@ const QuickViewModal = ({ product: initialProduct, isOpen, onClose }) => {
                 </div>
             </div>
 
-            <VTOModal
-                isOpen={showVTOModal}
-                onClose={() => setShowVTOModal(false)}
-                onConfirm={() => {
-                    setShowVTOModal(false);
-                    onClose();
-                    router.push(`/vto/${product.id}`);
-                }}
-            />
         </div>
     );
 };

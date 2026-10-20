@@ -17,6 +17,8 @@ export const CartProvider = ({ children }) => {
   });
 
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [buyNowItem, setBuyNowItem] = useState(null);
+  const clearBuyNowItem = () => setBuyNowItem(null);
 
   // ✅ Effect ONLY syncs to external system (localStorage)
   useEffect(() => {
@@ -114,6 +116,9 @@ export const CartProvider = ({ children }) => {
         closeCart: () => setIsCartOpen(false),
         toggleCheck,
         removeAllItems,
+        buyNowItem,
+        setBuyNowItem,
+        clearBuyNowItem,
       }}
     >
       {children}

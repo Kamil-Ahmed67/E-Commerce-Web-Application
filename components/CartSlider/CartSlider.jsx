@@ -1,10 +1,30 @@
 'use client'
+import { useEffect } from 'react'
 import { FiLock, FiMinus, FiPlus, FiShoppingCart, FiTrash2, FiX } from 'react-icons/fi'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useCart } from '@/provider/CartProvider'
+import { trackEvent } from '@/lib/trackEvent'
 export default function CartSlider({ isOpen, onClose }) {
     const { cartItems, removeFromCart, updateQuantity, cartTotal } = useCart()
+
+    useEffect(() => {
+        if (!isOpen || cartItems.length === 0) return;
+        trackEvent('view_cart', {
+            value: cartTotal,
+            contentIds: cartItems.map((i) => String(i.id)),
+            contents: cartItems.map((i) => ({
+                id: i.id,
+                title: i.title,
+                price: Number(i.discountedPrice ?? i.price ?? 0),
+                quantity: i.quantity,
+                brand: i.brand,
+                sku: i.sku,
+            })),
+            numItems: cartItems.reduce((s, i) => s + i.quantity, 0),
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
     return (
         <div className={`fixed inset-0 z-50 ${isOpen ? '' : 'pointer-events-none'}`}>
             {/* Background overlay */}

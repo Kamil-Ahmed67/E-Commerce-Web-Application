@@ -5,7 +5,7 @@ import {
     FiGrid,
     FiList,
     FiChevronLeft,
-    FiChevronRight
+    FiChevronRight,
 } from 'react-icons/fi';
 import { getNewProducts } from "@/lib/server/shopData";
 import CategoryNewDropdown from "./CategoryNewDropdown";
@@ -16,6 +16,11 @@ import SingleNewGridItem from "./SingleNewGridItem";
 import SingleNewListItem from "./SingleNewListItem";
 import { fetchCategories } from "@/lib/server/categoryData";
 import { isMenCategory, isWomenCategory, normalizeGender } from "@/utils/genderHelpers";
+import { BRAND_CONFIGS } from "@/lib/brandConfig";
+import { isSameBrand } from "@/utils/brandHelpers";
+import Breadcrumb from "@/components/Breadcrumb/Breadcrumb";
+import { trackEvent } from "@/lib/trackEvent";
+import MingleLoader from "@/components/MingleLoader/MingleLoader";
 const ShopNewWithSidebar = () => {
     const [productStyle, setProductStyle] = useState("grid");
     const searchParams = useSearchParams();
@@ -35,10 +40,37 @@ const ShopNewWithSidebar = () => {
         priceRange: { from: 0, to: 10000 }
     });
     const [currentPage, setCurrentPage] = useState(1);
+    const [visibleInPage, setVisibleInPage] = useState(10);
     const categoryDropdownRef = useRef(null);
     const genderDropdownRef = useRef(null);
     const sizeDropdownRef = useRef(null);
     const priceDropdownRef = useRef(null);
+    const brandDropdownRef = useRef(null);
+    const sentinelRef = useRef(null);
+    const isObservingRef = useRef(false);
+    const topRef = useRef(null);
+
+    const activeBrand = useMemo(() =>
+        brandFromUrl ? Object.values(BRAND_CONFIGS).find(b => b.name === brandFromUrl) : null,
+    [brandFromUrl]);
+
+    // Breadcrumb trail — Home / New Arrivals / Brand / Gender / Category
+    const breadcrumbs = useMemo(() => {
+        const crumbs = [{ label: 'Home', href: '/' }, { label: 'New Arrivals', href: '/new-arrival' }];
+        if (activeBrand) {
+            crumbs.push({ label: activeBrand.name, href: `/brands/${activeBrand.slug}/collection` });
+        }
+        if (genderFromUrl) {
+            crumbs.push({
+                label: genderFromUrl,
+                href: activeBrand ? `/brands/${activeBrand.slug}/${genderFromUrl.toLowerCase()}` : `/${genderFromUrl.toLowerCase()}`,
+            });
+        }
+        if (categoryFromUrl) {
+            crumbs.push({ label: categoryFromUrl, href: null });
+        }
+        return crumbs;
+    }, [activeBrand, genderFromUrl, categoryFromUrl]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -86,11 +118,13 @@ const ShopNewWithSidebar = () => {
             brand: newBrand || null
         }));
         setCurrentPage(1);
+        setVisibleInPage(10);
     }, [searchParams]);
 
     // Reset page when new arrival mode changes
     useEffect(() => {
         setCurrentPage(1);
+        setVisibleInPage(10);
     }, [isNewArrivalMode]);
 
     // Categories with product counts
@@ -121,7 +155,7 @@ const ShopNewWithSidebar = () => {
 
         return products.filter(product => {
             // Brand filter
-            if (filters.brand && product.brand !== filters.brand) return false;
+            if (filters.brand && !isSameBrand(product.brand, filters.brand)) return false;
 
             // Category filter
             if (filters.categories.length > 0 && !filters.categories.includes(product.productType)) return false;
@@ -140,23 +174,76 @@ const ShopNewWithSidebar = () => {
             // if (filters.size && !product.sizes?.includes(filters.size)) return false;
 
             // Price filter
-            if (product.sellingPrice < filters.priceRange.from || product.discountedPrice > filters.priceRange.to) return false;
+            if (product.sellingPrice < filters.priceRange.from || product.sellingPrice > filters.priceRange.to) return false;
 
             return true;
         });
     }, [filters, products, isNewArrivalMode]);
 
     // Pagination calculations - NOW filteredProducts is defined
-    const productsPerPage = 9;
+    const productsPerPage = 25;
     const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
     const indexOfLastProduct = currentPage * productsPerPage;
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+    const pageProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+
+    // Products progressively revealed within the current page (infinite-scroll-like)
+    const currentProducts = pageProducts.slice(0, visibleInPage);
+    const hasMoreInPage = visibleInPage < pageProducts.length;
+
+    // GA4 view_item_list — fires once per page/filter change (not on every
+    // infinite-scroll reveal) with the set of products actually shown.
+    useEffect(() => {
+        if (pageProducts.length === 0) return;
+        const listName = brandFromUrl || categoryFromUrl || genderFromUrl || 'New Arrivals';
+        trackEvent('view_item_list', {
+            contentIds: pageProducts.map((p) => String(p.id)),
+            contents: pageProducts.map((p) => ({
+                id: p.id,
+                title: p.title,
+                price: p.sellingPrice ?? p.price ?? 0,
+                quantity: 1,
+                brand: p.brand,
+                category: p.productType,
+            })),
+            numItems: pageProducts.length,
+            listName,
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredProducts, currentPage]);
 
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
+        setVisibleInPage(10);
     }, [filters]);
+
+    // Reset progressive reveal whenever the current page changes
+    useEffect(() => {
+        setVisibleInPage(10);
+    }, [currentPage]);
+
+    // Infinite-scroll-style progressive reveal within the current page
+    useEffect(() => {
+        if (!hasMoreInPage) return;
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !isObservingRef.current) {
+                isObservingRef.current = true;
+                setVisibleInPage((prev) => Math.min(prev + 10, pageProducts.length));
+            }
+        }, { rootMargin: "200px" });
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [hasMoreInPage, pageProducts.length]);
+
+    // Allow the next intersection to trigger another load once visibleInPage updates
+    useEffect(() => {
+        isObservingRef.current = false;
+    }, [visibleInPage]);
 
     // Clean all filters
     const handleCleanAll = () => {
@@ -173,6 +260,7 @@ const ShopNewWithSidebar = () => {
         genderDropdownRef.current?.reset();
         sizeDropdownRef.current?.reset();
         priceDropdownRef.current?.reset();
+        brandDropdownRef.current?.reset();
     };
 
     // Clean filters when new arrival mode is active
@@ -211,65 +299,53 @@ const ShopNewWithSidebar = () => {
     };
 
     const handlePageChange = (page) => {
-        if (typeof page === 'number') setCurrentPage(page);
+        if (typeof page === 'number') {
+            setCurrentPage(page);
+            topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     };
 
-    if (isLoading) {
-        return <div className="text-center py-20">Loading products...</div>;
-    }
+    if (isLoading) return <MingleLoader fullScreen={false} />;
 
     return (
-        <section className="pb-20 pt-20 md:pt-34 lg:pt-34 xl:pt-[128.5px] bg-white">
-            <div className="w-full border-t border-gray-300 mx-auto px-3 sm:px-8 xl:px-4">
-                <div className="py-8">
-                    <h3 className="text-4xl font-bold text-gray-800">New Arrivals</h3>
+        <section ref={topRef} className="pb-20 pt-[112px] md:pt-32 lg:pt-[140px] xl:pt-[140px] bg-white">
+
+            <div className="w-full mx-auto px-3 sm:px-8 xl:px-4 mb-4">
+                <Breadcrumb items={breadcrumbs} />
+            </div>
+
+            {/* Filter dropdowns hidden — filtering still works via URL params */}
+            <div className="hidden">
+                <CategoryNewDropdown
+                    ref={categoryDropdownRef}
+                    categories={categories}
+                    selectedCategories={filters.categories}
+                    onChange={(selected) => setFilters(prev => ({ ...prev, categories: selected }))}
+                />
+                <GenderNewDropdown
+                    ref={genderDropdownRef}
+                    genders={genders}
+                    selectedGenders={filters.genders}
+                    onChange={(selected) => setFilters(prev => ({ ...prev, genders: selected }))}
+                />
+                <PriceNewDropdown
+                    ref={priceDropdownRef}
+                    priceRange={filters.priceRange}
+                    onChange={(range) => setFilters(prev => ({ ...prev, priceRange: range }))}
+                />
+            </div>
+
+            <div className="w-full border-gray-300 mx-auto px-3 sm:px-8 xl:px-4">
+                <div className="py-2">
+                    <h3 className="text-3xl sm:text-4xl font-bold text-gray-800">New Arrivals</h3>
                 </div>
                 <div className="flex flex-col lg:flex-row gap-7.5">
-                    <div className="w-full lg:w-1/4">
-                        <div className="rounded-sm">
-                            <div className="flex flex-col gap-4">
-                                <div className="rounded-sm py-4 px-5">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-gray-700">Filters:</p>
-                                        <button type="button" onClick={handleCleanAll} className="text-[#3f988e] hover:underline">
-                                            Clean All
-                                        </button>
-                                    </div>
-                                </div>
 
-                                <CategoryNewDropdown
-                                    ref={categoryDropdownRef}
-                                    categories={categories}
-                                    selectedCategories={filters.categories}
-                                    onChange={(selected) => setFilters(prev => ({ ...prev, categories: selected }))}
-                                />
-                                <GenderNewDropdown
-                                    ref={genderDropdownRef}
-                                    genders={genders}
-                                    selectedGenders={filters.genders}
-                                    onChange={(selected) => setFilters(prev => ({ ...prev, genders: selected }))}
-                                />
-                                {/* <SizeNewDropdown
-                                    ref={sizeDropdownRef}
-                                    selectedSize={filters.size}
-                                    onChange={(selected) => setFilters(prev => ({ ...prev, size: selected }))}
-                                /> */}
-                                <PriceNewDropdown
-                                    ref={priceDropdownRef}
-                                    priceRange={filters.priceRange}
-                                    onChange={(range) => setFilters(prev => ({ ...prev, priceRange: range }))}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="w-full lg:w-3/4 flex flex-col">
-                        <div className="rounded-sm pl-3 pr-2.5 py-2 mb-4 flex items-center justify-between">
-                            <div className="flex flex-wrap items-center gap-4">
-                                <p className="text-gray-700">
-                                    Showing <span className="text-gray-700">
-                                        {indexOfFirstProduct + 1}-{Math.min(indexOfLastProduct, filteredProducts.length)} of {filteredProducts.length}
-                                    </span> Products
+                    <div className="w-full flex flex-col">
+                        <div className="rounded-sm pl-3 pr-2.5 py-2 mb-2 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <p className="text-sm text-gray-600">
+                                    <span className="font-medium text-gray-800">{filteredProducts.length}</span> Products
                                 </p>
                             </div>
                             <div className="flex items-center gap-2.5">
@@ -289,7 +365,7 @@ const ShopNewWithSidebar = () => {
                         </div>
 
                         <div className="grow">
-                            <div className={`${productStyle === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-4" : "flex flex-col gap-7.5"}`}>
+                            <div className={`${productStyle === "grid" ? "grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3" : "flex flex-col gap-7.5"}`}>
                                 {currentProducts.length > 0 ? (
                                     currentProducts.map((product, key) =>
                                         productStyle === "grid"
@@ -308,6 +384,12 @@ const ShopNewWithSidebar = () => {
                                     </div>
                                 )}
                             </div>
+
+                            {hasMoreInPage && (
+                                <div ref={sentinelRef} className="w-full flex items-center justify-center py-8">
+                                    <div className="w-6 h-6 border-2 border-gray-300 border-t-[#32BBAB] rounded-full animate-spin" />
+                                </div>
+                            )}
                         </div>
 
                         {filteredProducts.length > 0 && (

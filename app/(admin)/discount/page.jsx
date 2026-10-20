@@ -2,7 +2,7 @@ import Discount from "@/components/Admin/Discount";
 
 export const metadata = {
   title: "Discount Management | Mingle",
-  description: "This is discount management page Of Mingle Fashion",
+  description: "This is discount management page Of Mingle In Style",
 };
 
 export default function DiscountPage() {

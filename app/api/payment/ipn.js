@@ -6,14 +6,25 @@ export async function POST(request) {
     const ipnData = await request.json();
     
     const result = await handleSSLCommerzIPN(ipnData);
-    
+
     if (result.status === 'VALID' || result.status === 'VALIDATED') {
-      // Process successful payment
-      // Update your database, send confirmation emails, etc.
-      
-      return NextResponse.json({ 
-        status: 'success', 
-        message: 'IPN processed successfully' 
+      // Check if this is a VTO pack payment (value_c carries the pack info)
+      try {
+        const packInfo = ipnData.value_c ? JSON.parse(ipnData.value_c) : null;
+        if (packInfo?.type === 'vto_pack') {
+          // VTO pack purchase confirmed — credits are granted client-side via /vto/success redirect.
+          // The order record in the DB serves as the payment receipt for support disputes.
+          return NextResponse.json({
+            status: 'success',
+            message: 'VTO pack payment confirmed',
+          });
+        }
+      } catch {}
+
+      // Standard product order
+      return NextResponse.json({
+        status: 'success',
+        message: 'IPN processed successfully'
       });
     } else if (result.status === 'HOLD') {
       // Handle held transactions (high risk)

@@ -1,5 +1,6 @@
 "use client";
 import { forwardRef, useState, useImperativeHandle, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 const GenderItem = ({ gender, selected, onChange }) => {
   return (
@@ -45,14 +46,27 @@ const GenderItem = ({ gender, selected, onChange }) => {
   );
 };
 
+const GENDER_ROUTES = { Men: '/men', Women: '/women' };
+
 const GenderDropdown = forwardRef(({ genders, selectedGenders = [], onChange }, ref) => {
   const [toggleDropdown, setToggleDropdown] = useState(true);
   const [internalSelected, setInternalSelected] = useState(selectedGenders);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Detect active category from /shop/[cat], /men/[cat], /women/[cat] or ?category= param
+  const getActiveCategory = () => {
+    const match = pathname.match(/^\/(?:shop|men|women)\/(.+)$/);
+    return match ? decodeURIComponent(match[1]) : (searchParams.get('category') || null);
+  };
 
   useImperativeHandle(ref, () => ({
     reset: () => {
       setInternalSelected([]);
       onChange([]);
+      const cat = getActiveCategory();
+      router.push(cat ? `/shop/${encodeURIComponent(cat)}` : '/shop');
     }
   }));
 
@@ -70,13 +84,15 @@ const GenderDropdown = forwardRef(({ genders, selectedGenders = [], onChange }, 
     setInternalSelected(newSelected);
     onChange(newSelected);
 
-    const params = new URLSearchParams(window.location.search);
-    if (newSelected.length > 0) {
-      params.set('gender', newSelected[0]);
-    } else {
-      params.delete('gender');
+    const cat = getActiveCategory();
+
+    if (newSelected.length === 0) {
+      router.push(cat ? `/shop/${encodeURIComponent(cat)}` : '/shop');
+      return;
     }
-    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+
+    const genderRoute = GENDER_ROUTES[newSelected[0]] ?? '/shop';
+    router.push(cat ? `${genderRoute}/${encodeURIComponent(cat)}` : genderRoute);
   };
 
   return (

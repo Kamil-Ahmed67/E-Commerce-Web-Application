@@ -2,7 +2,7 @@ import ProductManage from "@/components/Admin/ProductManage";
 
 export const metadata = {
   title: "Manage Products | Mingle",
-  description: "This is Cart Page Of Mingle Fashion",
+  description: "This is Cart Page Of Mingle In Style",
 };
 
 const ProductManagePage = () => {

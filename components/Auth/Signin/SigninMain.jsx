@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { FiMail, FiLock, FiArrowLeft, FiUser, FiEye, FiEyeOff } from 'react-icons/fi';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/provider/AuthProvider';
 import config from '@/config';
 
@@ -30,8 +31,17 @@ const SigninMainContent = ({ isModal = false }) => {
     const [forgotPasswordError, setForgotPasswordError] = useState(null);
     const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
 
-    const { login, loading, error } = useAuth();
+    const [socialError, setSocialError] = useState(null);
+
+    const { login, socialLogin, loading, error } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const redirectParam = searchParams.get('redirect');
+    const redirectTarget = redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+        ? redirectParam
+        : '/';
+    const requiresAccount = redirectParam?.startsWith('/vto/');
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -45,13 +55,28 @@ const SigninMainContent = ({ isModal = false }) => {
 
             if (loginSuccess) {
                 await new Promise(resolve => setTimeout(resolve, 50));
-                const redirectUrl = localStorage.getItem('redirectAfterLogin') || '/';
-                localStorage.removeItem('redirectAfterLogin');
-                window.location.href = redirectUrl;
+                window.location.href = redirectTarget;
             }
         } catch (error) {
             console.error('Login error:', error);
         }
+    };
+
+    const handleGoogleSuccess = async (credentialResponse) => {
+        setSocialError(null);
+        try {
+            const loginSuccess = await socialLogin('Google', credentialResponse.credential, config.tenantId);
+            if (loginSuccess) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+                window.location.href = redirectTarget;
+            }
+        } catch (error) {
+            console.error('Google login error:', error);
+        }
+    };
+
+    const handleGoogleError = () => {
+        setSocialError('Google sign-in failed. Please try again.');
     };
 
     const handleForgotPassword = async (e) => {
@@ -84,7 +109,11 @@ const SigninMainContent = ({ isModal = false }) => {
         }
     };
     const handleGuestCheckout = () => {
-        router.push('/checkout');
+        if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back();
+        } else {
+            router.push('/');
+        }
     };
 
     const toggleForgotPassword = () => {
@@ -111,6 +140,10 @@ const SigninMainContent = ({ isModal = false }) => {
                     toggleForgotPassword={toggleForgotPassword}
                     showPassword={showPassword}
                     togglePasswordVisibility={togglePasswordVisibility}
+                    requiresAccount={requiresAccount}
+                    socialError={socialError}
+                    handleGoogleSuccess={handleGoogleSuccess}
+                    handleGoogleError={handleGoogleError}
                 />
             ) : (
                 <ForgotPasswordView
@@ -136,7 +169,11 @@ const SigninView = ({
     handleGuestCheckout,
     toggleForgotPassword,
     showPassword,
-    togglePasswordVisibility
+    togglePasswordVisibility,
+    requiresAccount,
+    socialError,
+    handleGoogleSuccess,
+    handleGoogleError
 }) => (
     <div className="space-y-6">
         <div className="text-center">
@@ -250,7 +287,38 @@ const SigninView = ({
             </div>
         </div>
 
+        {socialError && (
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded">
+                <div className="flex">
+                    <div className="shrink-0">
+                        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                    </div>
+                    <div className="ml-3">
+                        <p className="text-sm text-red-700">{socialError}</p>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        <div className="flex justify-center">
+            <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                useOneTap={false}
+                width="100%"
+                text="continue_with"
+                shape="rectangular"
+            />
+        </div>
+
         <div className="grid gap-4">
+            {requiresAccount && (
+                <p className="text-center text-sm text-gray-500">
+                    Virtual Try-On requires an account to continue.
+                </p>
+            )}
             <button
                 onClick={handleGuestCheckout}
                 disabled={loading}

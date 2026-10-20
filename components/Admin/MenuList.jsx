@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { AnimatePresence, motion } from 'framer-motion';
-import { FiEdit2, FiTrash2, FiChevronDown, FiChevronRight, FiPlus } from 'react-icons/fi';
+import { AnimatePresence, motion, Reorder } from 'framer-motion';
+import { FiEdit2, FiTrash2, FiChevronDown, FiChevronRight, FiPlus, FiMenu as FiDragHandle } from 'react-icons/fi';
 import { FaTrashCan } from 'react-icons/fa6';
 import toast from 'react-hot-toast';
 import config from '@/config';
@@ -34,7 +34,10 @@ const MenuList = () => {
       try {
         setLoading(true);
         const data = await menuData();
-        if (isMounted) setMenus(data || []);
+        if (isMounted) {
+          setMenus(data || []);
+          setOriginalOrder((data || []).map((m) => m.Id));
+        }
       } catch (err) {
         if (isMounted) setError('Failed to load menu data');
         console.error(err);
@@ -92,6 +95,85 @@ const MenuList = () => {
     setEditingItem(item);
   };
 
+  const [originalOrder, setOriginalOrder] = useState([]);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const orderChanged = menus.some((m, i) => m.Id !== originalOrder[i]);
+
+  // Auto-scroll the page while dragging a row near the top/bottom edge of the
+  // viewport, so rows outside the current scroll position stay reachable.
+  const scrollSpeedRef = useRef(0);
+  const scrollRafRef = useRef(null);
+  const EDGE_ZONE = 110;
+  const MAX_SCROLL_SPEED = 22;
+
+  const runAutoScroll = useCallback(() => {
+    if (scrollSpeedRef.current !== 0) {
+      window.scrollBy(0, scrollSpeedRef.current);
+    }
+    scrollRafRef.current = requestAnimationFrame(runAutoScroll);
+  }, []);
+
+  const handleRowDrag = useCallback((event) => {
+    const y = event.clientY ?? event.touches?.[0]?.clientY;
+    if (typeof y !== 'number') return;
+
+    const vh = window.innerHeight;
+    if (y < EDGE_ZONE) {
+      scrollSpeedRef.current = -Math.max(4, Math.round(MAX_SCROLL_SPEED * (1 - y / EDGE_ZONE)));
+    } else if (y > vh - EDGE_ZONE) {
+      scrollSpeedRef.current = Math.max(4, Math.round(MAX_SCROLL_SPEED * (1 - (vh - y) / EDGE_ZONE)));
+    } else {
+      scrollSpeedRef.current = 0;
+    }
+
+    if (scrollRafRef.current == null) runAutoScroll();
+  }, [runAutoScroll]);
+
+  const stopAutoScroll = useCallback(() => {
+    scrollSpeedRef.current = 0;
+    if (scrollRafRef.current != null) {
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
+
+  const handleSaveOrder = async () => {
+    setSavingOrder(true);
+    try {
+      const sortOrderXml = menus.map((m, i) => `<r i="${m.Id}" s="${i + 1}"/>`).join('');
+      const response = await fetch(`${config.API_BASE_URL}api/Procedure/GetData`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          TenantId: config.tenantId
+        },
+        body: JSON.stringify({
+          operation: '',
+          procedureName: 'SP_EcomMenu',
+          parameters: {
+            QueryChecker: 8,
+            SortOrderXml: sortOrderXml
+          }
+        })
+      });
+
+      const result = await response.json();
+      if (result?.[0]?.AffectedRows > 0) {
+        setOriginalOrder(menus.map((m) => m.Id));
+        toast.success('Menu order saved');
+      } else {
+        toast.error('Failed to save menu order');
+      }
+    } catch (err) {
+      console.error('Save menu order error:', err);
+      toast.error('Failed to save menu order');
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
   const updateMenu = async (menuId, updatedData) => {
     try {
       let imagePath = '';
@@ -103,6 +185,7 @@ const MenuList = () => {
           body: form
         });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Promo image upload failed');
         imagePath = data.filePath || '';
       }
 
@@ -114,9 +197,9 @@ const MenuList = () => {
         },
         body: JSON.stringify({
           operation: '',
-          procedureName: 'SP_EcomItem',
+          procedureName: 'SP_EcomMenu',
           parameters: {
-            QueryChecker: 8,
+            QueryChecker: 3,
             Id: menuId,
             Title: updatedData.title,
             Path: updatedData.path,
@@ -131,7 +214,7 @@ const MenuList = () => {
       return result?.[0]?.AffectedRows > 0;
     } catch (err) {
       console.error('Update menu error:', err);
-      return false;
+      throw err;
     }
   };
 
@@ -145,9 +228,9 @@ const MenuList = () => {
         },
         body: JSON.stringify({
           operation: '',
-          procedureName: 'SP_EcomItem',
+          procedureName: 'SP_EcomMenu',
           parameters: {
-            QueryChecker: 9,
+            QueryChecker: 4,
             Id: submenuId,
             MenuId: menuId,
             Title: updatedData.title,
@@ -179,9 +262,9 @@ const MenuList = () => {
         },
         body: JSON.stringify({
           operation: '',
-          procedureName: 'SP_EcomItem',
+          procedureName: 'SP_EcomMenu',
           parameters: {
-            QueryChecker: 11,
+            QueryChecker: 6,
             Id: menuId
           }
         })
@@ -207,9 +290,9 @@ const MenuList = () => {
         },
         body: JSON.stringify({
           operation: '',
-          procedureName: 'SP_EcomItem',
+          procedureName: 'SP_EcomMenu',
           parameters: {
-            QueryChecker: 12,
+            QueryChecker: 7,
             Id: submenuId,
             MenuId: menuId
           }
@@ -329,7 +412,7 @@ const MenuList = () => {
       }
     } catch (err) {
       console.error('Failed to save:', err);
-      toast.error('Failed to save changes');
+      toast.error(err.message || 'Failed to save changes');
     }
   };
 
@@ -343,9 +426,9 @@ const MenuList = () => {
         },
         body: JSON.stringify({
           operation: '',
-          procedureName: 'SP_EcomItem',
+          procedureName: 'SP_EcomMenu',
           parameters: {
-            QueryChecker: 10,
+            QueryChecker: 5,
             MenuId: newSubmenuData.menuId,
             Title: newSubmenuData.title,
             Path: newSubmenuData.path,
@@ -443,13 +526,28 @@ const MenuList = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
-      <div className=" px-4 py-4">
+      <div className=" px-4 py-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Drag a row by its <FiDragHandle className="inline -mt-0.5" size={14} /> handle to change where it appears in the navbar.
+          </p>
+          <button
+            onClick={handleSaveOrder}
+            disabled={!orderChanged || savingOrder}
+            className="px-4 py-2 bg-teal-700 text-white text-sm font-semibold rounded-md hover:bg-teal-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            {savingOrder ? 'Saving…' : 'Save Order'}
+          </button>
+        </div>
         <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
           {/* MAIN TABLE */}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-linear-to-r from-teal-700 to-teal-900">
                 <tr>
+                  <th className="px-3 py-4 text-center text-xs font-light text-white uppercase tracking-wider">
+                    Order
+                  </th>
                   <th className="px-6 py-4 text-left text-xs font-light text-white uppercase tracking-wider">
                     Name
                   </th>
@@ -464,22 +562,37 @@ const MenuList = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <Reorder.Group
+                as="tbody"
+                axis="y"
+                values={menus}
+                onReorder={setMenus}
+                className="bg-white divide-y divide-gray-100"
+              >
                 {menus.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-16 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-16 text-center text-gray-500">
                       No menus found
                     </td>
                   </tr>
                 ) : (
                   menus.map((menu) => (
                     <React.Fragment key={menu.Id}>
-                      {/* Parent Row */}
-                      <tr
-                        className={`hover:bg-teal-50/40 transition-colors ${
+                      {/* Parent Row — drag the handle to reorder */}
+                      <Reorder.Item
+                        as="tr"
+                        value={menu}
+                        onDrag={handleRowDrag}
+                        onDragEnd={stopAutoScroll}
+                        className={`hover:bg-teal-50/40 transition-colors bg-white ${
                           expandedMenus.includes(menu.Id) ? 'bg-teal-50' : ''
                         }`}
                       >
+                        <td className="px-3 py-4 whitespace-nowrap">
+                          <div className="flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-400 hover:text-teal-700" title="Drag to reorder">
+                            <FiDragHandle size={18} />
+                          </div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             {menu.submenu?.length > 0 ? (
@@ -533,7 +646,7 @@ const MenuList = () => {
                             </button>
                           </div>
                         </td>
-                      </tr>
+                      </Reorder.Item>
 
                       {/* Animated Submenu Section */}
                       <AnimatePresence>
@@ -544,7 +657,7 @@ const MenuList = () => {
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.3, ease: 'easeInOut' }}
                           >
-                            <td colSpan={4} className="p-0">
+                            <td colSpan={5} className="p-0">
                               <motion.div
                                 initial={{ y: -10, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
@@ -637,7 +750,7 @@ const MenuList = () => {
                     </React.Fragment>
                   ))
                 )}
-              </tbody>
+              </Reorder.Group>
             </table>
           </div>
         </div>
@@ -692,14 +805,13 @@ const MenuList = () => {
 
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        URL Path <span className="text-red-500">*</span>
+                        URL Path
                       </label>
                       <input
                         type="text"
                         name="path"
                         value={formData.path}
                         onChange={handleChange}
-                        required
                         className="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                         placeholder="/electronics"
                       />
@@ -753,6 +865,7 @@ const MenuList = () => {
                           }}
                           className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-teal-700 hover:file:bg-indigo-100 transition"
                         />
+                        <p className="text-xs text-gray-400 mt-1">PNG, JPG or WebP, up to 7MB · Any resolution — automatically resized &amp; converted to WebP</p>
 
                         {previewImage && (
                           <div className="mt-4 space-y-2">

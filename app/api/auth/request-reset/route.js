@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import crypto from 'crypto';
+import { generateResetToken } from '@/lib/server/resetToken';
 
 export async function POST(request) {
   try {
@@ -13,8 +13,12 @@ export async function POST(request) {
       );
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetToken = generateResetToken(email);
     const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[dev only] Password reset URL:', resetUrl);
+    }
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -111,12 +115,18 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       message: 'Password reset link has been sent.',
+      ...(process.env.NODE_ENV !== 'production' ? { devResetUrl: resetUrl } : {}),
     });
 
   } catch (error) {
     console.error('Email Error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to process request' },
+      {
+        success: false,
+        error: 'Failed to process request',
+        debugMessage: error?.message || String(error),
+        debugCode: error?.code || null,
+      },
       { status: 500 }
     );
   }

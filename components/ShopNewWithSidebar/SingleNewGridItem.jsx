@@ -181,7 +181,7 @@ const SingleNewGridItem = ({ product, onQuickView }) => {
         </button>
 
         {/* Sliding images */}
-        <Link prefetch={false} href={`/shop-details/${product.id}`} className="block w-full h-full">
+        <Link prefetch={false} href={`/product/${product.slug}`} className="block w-full h-full">
           <div className="relative w-full h-full overflow-hidden">
             <div
               className="flex h-full"
@@ -202,8 +202,8 @@ const SingleNewGridItem = ({ product, onQuickView }) => {
                     src={img}
                     alt={`${product.styleNo || product.description} - ${index + 1}`}
                     fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-contain"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     priority={index === 0}
                   />
                 </div>
@@ -224,15 +224,15 @@ const SingleNewGridItem = ({ product, onQuickView }) => {
       </div>
 
       {/* Product info */}
-      <div className="p-3 flex flex-col">
+      <div className="p-2 flex flex-col">
         <div className="mb-1">
-          <p className="text-xs font-light text-gray-500 uppercase tracking-widest">
+          <p className="text-[10px] font-light text-gray-500 uppercase tracking-widest">
             {product.brand?.replace(/([a-z])([A-Z])/g, "$1 $2")}
           </p>
         </div>
 
-        <h3 className="text-xl lg:text-sm text-gray-700 mb-2 leading-tight tracking-tight">
-          <Link prefetch={false} href={`/shop-details/${product.id}`} className="hover:underline">
+        <h3 className="text-xs text-gray-700 mb-1.5 leading-tight tracking-tight">
+          <Link prefetch={false} href={`/product/${product.slug}`} className="hover:underline">
             {product.description}
           </Link>
         </h3>
@@ -240,7 +240,7 @@ const SingleNewGridItem = ({ product, onQuickView }) => {
         <div className="mt-auto">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-lg lg:text-base font-medium text-gray-900">
+              <span className="text-xs font-medium text-gray-900">
                 Tk{" "}
                 {Number(product.sellingPrice).toLocaleString("en-US", {
                   minimumFractionDigits: 2,
@@ -260,13 +260,13 @@ const SingleNewGridItem = ({ product, onQuickView }) => {
                 {product.colors.slice(0, 3).map((color, index) => (
                   <span
                     key={index}
-                    className="w-4 h-4 rounded-full border border-gray-200"
+                    className="w-3.5 h-3.5 rounded-full border border-gray-200"
                     style={{ backgroundColor: color }}
                     aria-label={`Color option ${color}`}
                   />
                 ))}
                 {product.colors.length > 3 && (
-                  <span className="text-xs text-gray-500 flex items-center">
+                  <span className="text-[10px] text-gray-500 flex items-center">
                     +{product.colors.length - 3}
                   </span>
                 )}

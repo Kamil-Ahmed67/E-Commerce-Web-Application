@@ -2,7 +2,7 @@ import ProductList from "@/components/Admin/ProductList";
 
 export const metadata = {
   title: "Product List | Mingle",
-  description: "This is product list Of Mingle Fashion",
+  description: "This is product list Of Mingle In Style",
 };
 
 const ProductListPage = () => {

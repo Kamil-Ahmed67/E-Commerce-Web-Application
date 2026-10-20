@@ -2,179 +2,238 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { FiChevronDown } from 'react-icons/fi'
+import { usePathname } from 'next/navigation'
+import { FiPlus, FiMinus } from 'react-icons/fi'
 import { useContext } from 'react'
 import { AuthContext } from '@/provider/AuthProvider'
-export default function MobileDrawer({ isOpen, onClose, navLinks, activeMenuId, onMenuClick }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { loginData, logout } = useContext(AuthContext)
-  const [navbarHeight, setNavbarHeight] = useState(80) // fallback
+import { useRouter } from 'next/navigation'
 
-  // Measure navbar height dynamically
-  useEffect(() => {
-    const navbar = document.querySelector('header')
-    if (!navbar) return
+const MOBILE_NAV_PRIMARY = [
+    { id: 'new-arrivals', title: 'New Arrivals', path: '/new-arrival' },
+    { id: 'women', title: 'Women', path: '/women' },
+    { id: 'men', title: 'Men', path: '/men' },
+    { id: 'brands', title: 'Brands', path: '/shop', isBrands: true },
+    { id: 'latest-offers', title: 'Offers', path: '/latest-offers' },
+]
 
-    const updateHeight = () => setNavbarHeight(navbar.offsetHeight)
+const MOBILE_NAV_SECONDARY = [
+    { id: 'about', title: 'Our Story', path: '/about' },
+    { id: 'store-location', title: 'Store Location', path: '/store-location' },
+    { id: 'customer-service', title: 'Customer Service', path: '/contact' },
+    { id: 'news-events', title: 'News & Events', path: '/news-events' },
+    { id: 'blog', title: 'Blog', path: '/blog' },
+    {
+        id: 'more',
+        title: 'More',
+        path: '#',
+        submenu: [
+            { title: 'Terms & Condition', path: '/terms' },
+            { title: 'Privacy Policy', path: '/privacy-policy' },
 
-    updateHeight()
-    window.addEventListener('resize', updateHeight)
+            { title: 'Refund Policy', path: '/replacement-policy' },
+            { title: 'Shipping & Delivery', path: '/delivery-timeline' },
+        ],
+    },
+]
 
-    const observer = new ResizeObserver(updateHeight)
-    observer.observe(navbar)
+export default function MobileDrawer({ isOpen, onClose, brandCategories = [], navLinks = [], menCategories = [], womenCategories = [] }) {
+    const pathname = usePathname()
+    const router = useRouter()
+    const { loginData, logout } = useContext(AuthContext)
 
-    return () => {
-      window.removeEventListener('resize', updateHeight)
-      observer.disconnect()
+    const BRAND_SLUGS = ['avasa', 'mingle', 'purenorth', 'vidjar'];
+    const _brandMatch = pathname.match(/^\/brands\/([^/]+)/);
+    const brandSlug = _brandMatch && BRAND_SLUGS.includes(_brandMatch[1]) ? _brandMatch[1] : null;
+
+    /* Lock body scroll while drawer is open */
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = ''
+        }
+        return () => { document.body.style.overflow = '' }
+    }, [isOpen])
+
+    const handleLogout = () => {
+        logout()
+        onClose()
+        router.push('/')
     }
-  }, [])
 
-  const handleLogout = () => {
-    logout()
-    onClose()
-    router.push('/')
-  }
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <>
+                    {/* Backdrop — fixed, never scrolls */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="fixed inset-0 z-40 md:hidden bg-black/40"
+                        style={{ touchAction: 'none' }}
+                    />
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-40 md:hidden bg-white"
-          />
-
-          {/* Drawer */}
-          <motion.div
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 right-0 bg-white z-50 md:hidden overflow-y-auto"
-            style={{
-              top: navbarHeight,
-              maxHeight: `calc(100vh - ${navbarHeight}px)`,
-            }}
-          >
-            <div className="flex flex-col h-full min-h-0">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900">Menu</h2>
-              </div>
-
-              {/* Navigation */}
-              <nav className="flex-1 py-3 px-6 space-y-1 overflow-y-auto">
-                {navLinks.map((link) => (
-                  <MobileNavItem
-                    key={link.Id}
-                    link={link}
-                    isActive={activeMenuId === link.Id || pathname.startsWith(link.Path)}
-                    onMenuClick={onMenuClick}
-                    onClose={onClose}
-                  />
-                ))}
-              </nav>
-
-              {/* Auth Footer */}
-              <div className="border-t mb-12 border-gray-200 p-6 bg-gray-50">
-                {loginData ? (
-                  <div className="space-y-2 text-center">
-                    <p className="text-lg font-semibold text-gray-900">{loginData.Name}</p>
-                    <p className="text-sm text-gray-500">{loginData.Email}</p>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full py-2.5 bg-red-700 text-white rounded hover:bg-red-800 font-medium text-lg"
+                    {/* Drawer — full height from top */}
+                    <motion.div
+                        initial={{ x: '-100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '-100%' }}
+                        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                        className="fixed top-0 left-0 h-screen bg-white z-50 md:hidden w-[85vw] max-w-sm shadow-2xl flex flex-col"
                     >
-                      Sign Out
-                    </button>
-                  </div>
-                ) : (
-                  <Link
-                    href="/signin"
-                    onClick={onClose}
-                    className="block w-full py-4 bg-[#32BBAB] text-white text-center rounded-xl hover:bg-[#2aa89a] font-medium text-lg"
-                  >
-                    Sign In
-                  </Link>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  )
+                        {/* Drawer header */}
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+                            <span className="font-semibold text-gray-800 text-base">
+                                My Account
+                            </span>
+                            <button
+                                onClick={onClose}
+                                className="text-gray-500 hover:text-gray-800 text-2xl leading-none"
+                                aria-label="Close menu"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {/* Auth action */}
+                        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 shrink-0">
+                            {loginData ? (
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="font-semibold text-gray-900 text-sm">{loginData.Name}</p>
+                                        <p className="text-xs text-gray-500">{loginData.Email}</p>
+                                    </div>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="px-4 py-2 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700 transition-colors"
+                                    >
+                                        Sign Out
+                                    </button>
+                                </div>
+                            ) : (
+                                <Link
+                                    href="/signin"
+                                    onClick={onClose}
+                                    className="flex items-center justify-center w-full py-3 bg-[#32BBAB] text-white rounded font-medium text-sm hover:bg-[#279487] transition-colors"
+                                >
+                                    Sign In / Register
+                                </Link>
+                            )}
+                        </div>
+
+                        {/* Navigation — scrollable area only */}
+                        <nav className="flex-1 overflow-y-auto overscroll-contain">
+                            <div className="px-5 py-2">
+                                {MOBILE_NAV_PRIMARY.map((item) => (
+                                    <MobileNavItem
+                                        key={item.id}
+                                        item={item}
+                                        pathname={pathname}
+                                        onClose={onClose}
+                                        brandCategories={
+                                            item.isBrands ? brandCategories
+                                                : item.id === 'men' ? menCategories
+                                                    : item.id === 'women' ? womenCategories
+                                                        : null
+                                        }
+                                        dark={false}
+                                    />
+                                ))}
+                            </div>
+                            <div className="px-5 py-2 bg-gray-900">
+                                {MOBILE_NAV_SECONDARY.map((item) => (
+                                    <MobileNavItem
+                                        key={item.id}
+                                        item={item}
+                                        pathname={pathname}
+                                        onClose={onClose}
+                                        brandCategories={item.isBrands ? brandCategories : null}
+                                        dark={true}
+                                    />
+                                ))}
+                            </div>
+                        </nav>
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
+    )
 }
 
-// MobileNavItem component
-function MobileNavItem({ link, isActive, onMenuClick, onClose }) {
-  const [open, setOpen] = useState(false)
-  const hasSubmenu = link.submenu && link.submenu.length > 0
+function MobileNavItem({ item, pathname, onClose, brandCategories, dark = false }) {
+    const [open, setOpen] = useState(false)
+    const hasSubmenu = (brandCategories && brandCategories.length > 0) || (item.submenu && item.submenu.length > 0)
+    const isActive = pathname === item.path || pathname.startsWith(item.path + '/')
 
-  const handleClick = () => {
-    if (hasSubmenu) setOpen(!open)
-    else {
-      onMenuClick(link.Id)
-      onClose()
-    }
-  }
+    const labelClass = `text-sm font-medium uppercase tracking-wider transition-colors truncate ${isActive
+        ? 'text-[#32BBAB]'
+        : dark
+            ? 'text-white hover:text-[#32BBAB]'
+            : 'text-gray-800 hover:text-[#32BBAB]'
+        }`
 
-  return (
-    <div className="border-b border-gray-100 last:border-0">
-      <button
-        onClick={handleClick}
-        className="w-full flex items-center justify-between py-5 text-left group"
-      >
-        <span
-          className={`text-lg font-medium transition-colors ${
-            isActive ? 'text-[#32BBAB]' : 'text-gray-800 group-hover:text-[#32BBAB]'
-          }`}
-        >
-          {link.Title}
-        </span>
-        {hasSubmenu && (
-          <FiChevronDown
-            className={`w-6 h-6 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
-          />
-        )}
-      </button>
+    const subItems = brandCategories
+        ? brandCategories.map(c => ({ title: c.name, path: c.href }))
+        : item.submenu || []
 
-      {hasSubmenu && (
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              transition={{ duration: 0.3 }}
-              className="overflow-hidden"
-            >
-              <div className="py-3 pl-8 space-y-3 border-l-2 border-[#32BBAB]/20">
-                {link.submenu.map((sub) => (
-                  <Link
-                    key={sub.Id}
-                    href={sub.Path}
-                    prefetch={false}
-                    onClick={() => {
-                      onMenuClick(link.Id)
-                      onClose()
-                    }}
-                    className="block py-3 text-gray-600 hover:text-[#32BBAB] hover:translate-x-1 transition-all font-medium"
-                  >
-                    {sub.Title}
-                  </Link>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
-    </div>
-  )
+    return (
+        <div className={`border-b last:border-0 ${dark ? 'border-white/10' : 'border-gray-100'}`}>
+            <div className="flex items-center justify-between min-h-[48px] py-2">
+                {item.isBrands ? (
+                    <span className={`flex-1 cursor-default ${labelClass}`}>
+                        {item.title}
+                    </span>
+                ) : (
+                    <Link
+                        href={item.path === '#' ? '#' : item.path}
+                        prefetch={false}
+                        onClick={() => { if (item.path !== '#') onClose() }}
+                        className={`flex-1 ${labelClass}`}
+                    >
+                        {item.title}
+                    </Link>
+                )}
+
+                {hasSubmenu && (
+                    <button
+                        onClick={() => setOpen(!open)}
+                        className={`p-2 -mr-2 ${dark ? 'text-white/50 hover:text-[#32BBAB]' : 'text-gray-400 hover:text-[#32BBAB]'}`}
+                        aria-label={open ? 'Collapse' : 'Expand'}
+                    >
+                        {open ? <FiMinus className="w-5 h-5" /> : <FiPlus className="w-5 h-5" />}
+                    </button>
+                )}
+            </div>
+
+            {hasSubmenu && (
+                <AnimatePresence>
+                    {open && (
+                        <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: 'auto' }}
+                            exit={{ height: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="pb-2 pl-4 space-y-0.5 border-l-2 border-[#32BBAB]/30 ml-1">
+                                {subItems.map((sub) => (
+                                    <Link
+                                        key={sub.path}
+                                        href={sub.path}
+                                        prefetch={false}
+                                        onClick={onClose}
+                                        className={`block py-2 text-sm transition-colors hover:text-[#32BBAB] ${dark ? 'text-white/70' : 'text-gray-600'}`}
+                                    >
+                                        {sub.title}
+                                    </Link>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            )}
+        </div>
+    )
 }

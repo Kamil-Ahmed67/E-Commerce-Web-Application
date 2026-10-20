@@ -11,27 +11,49 @@ const ProductCard = ({ product }) => {
 
   const images = product.imgs?.thumbnails?.length
     ? product.imgs.thumbnails
-    : ['/images/placeholder.png'];
+    : [];
 
   // Clone first image for seamless loop
   const sliderImages = images.length > 1 ? [...images, images[0]] : images;
 
   // --- Effect for slideshow logic ---
   useEffect(() => {
+    // Clear any existing interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
     if (hovered && images.length > 1) {
+      // Start the slideshow IMMEDIATELY with a small timeout for the first change
+      // Set a timeout for the first slide change (faster than the interval)
+      const firstChangeTimeout = setTimeout(() => {
+        setCurrentImageIndex((prev) => prev + 1);
+        setEnableTransition(true);
+      }, 400); // First change after 300ms instead of waiting for interval
+
+      // Then set up the regular interval for subsequent changes
       intervalRef.current = setInterval(() => {
         setCurrentImageIndex((prev) => prev + 1);
         setEnableTransition(true);
       }, 1400);
+
+      // Store both in ref for cleanup
+      intervalRef.current = { 
+        firstTimeout: firstChangeTimeout,
+        interval: intervalRef.current 
+      };
     }
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        if (intervalRef.current.firstTimeout) {
+          clearTimeout(intervalRef.current.firstTimeout);
+        }
+        if (intervalRef.current.interval) {
+          clearInterval(intervalRef.current.interval);
+        }
+      }
     };
   }, [hovered, images.length]);
 
@@ -57,6 +79,11 @@ const ProductCard = ({ product }) => {
 
   const handleMouseEnter = () => {
     setHovered(true);
+    // Immediately set the first image change to happen quickly
+    if (images.length > 1) {
+      // Optional: You can also trigger the first change immediately
+      // but that might be too jarring. Using 300ms gives a good balance.
+    }
   };
 
   const handleMouseLeave = () => {
@@ -67,7 +94,7 @@ const ProductCard = ({ product }) => {
 
   return (
     <div
-      className="group relative w-full flex flex-col bg-white border border-gray-200 rounded-none overflow-hidden transition-all duration-300"
+      className="product-card group relative w-full h-full flex flex-col bg-white border border-gray-200 rounded-none overflow-hidden transition-all duration-300"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -90,7 +117,7 @@ const ProductCard = ({ product }) => {
         )}
 
         {/* Image slider with seamless loop */}
-        <Link href={`/shop-details/${product.id}`} passHref>
+        <Link href={`/product/${product.slug}`} passHref>
           <div className="relative w-full h-full overflow-hidden">
             <div
               className="flex h-full"
@@ -111,7 +138,7 @@ const ProductCard = ({ product }) => {
                     src={img}
                     alt={`${product.styleNo || product.description} - ${index + 1}`}
                     fill
-                    className="object-cover"
+                    className="object-contain"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     priority={index === 0}
                   />
@@ -122,9 +149,9 @@ const ProductCard = ({ product }) => {
         </Link>
 
         {/* Buy Now Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white py-2 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-30">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white py-2 transform md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 z-30">
           <Link
-            href={`/shop-details/${product.id}`}
+            href={`/product/${product.slug}`}
             className="w-full flex items-center justify-center text-xs uppercase tracking-wider font-medium"
           >
             BUY NOW
@@ -132,15 +159,14 @@ const ProductCard = ({ product }) => {
         </div>
       </div>
 
-      {/* Product Info */}
-      <div className="px-2.5 py-3 flex flex-col">
-        {product.brand && (
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-1">
-            {product.brand.replace(/([a-z])([A-Z])/g, '$1 $2')}
-          </p>
-        )}
-        <h3 className="text-md manrope font-semibold text-gray-700 mb-2 leading-tight tracking-tight">
-          <Link href={`/shop-details/${product.id}`} className="hover:underline">
+      {/* Product Info — flex-1 + mt-auto on the price keeps every card's price/button
+          pinned to the same bottom line regardless of how many lines the title wraps to */}
+      <div className="px-2.5 py-3 flex-1 flex flex-col">
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-1 min-h-[1em]">
+          {product.brand ? product.brand.replace(/([a-z])([A-Z])/g, '$1 $2') : ' '}
+        </p>
+        <h3 className="text-md manrope font-semibold text-gray-700 mb-2 leading-tight tracking-tight line-clamp-2">
+          <Link href={`/product/${product.slug}`} className="hover:underline">
             {product.description || product.styleNo}
           </Link>
         </h3>

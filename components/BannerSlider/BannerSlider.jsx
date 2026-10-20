@@ -13,6 +13,11 @@ import { useFeatures } from '@/hooks/useFeatures';
 const getMediaUrl = (url) => {
   if (!url) return '';
 
+  if (url.includes('drive.google.com/file/d/')) {
+    const match = url.match(/\/d\/([^/]+)/);
+    if (match?.[1]) return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+  }
+
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
@@ -22,12 +27,12 @@ const getMediaUrl = (url) => {
   return `${base}${path}`;
 };
 
-export default function BannerSlider({ banners, autoPlayInterval = 4000 }) {
+export default function BannerSlider({ banners, autoPlayInterval = 4000, shopLink = '/shop' }) {
   // Use the features hook
   const { features, loading } = useFeatures();
   // Check if banner content is enabled
   const isVideoBannerContentEnabled =
-  !loading && features?.enable_video_banner_content === true;
+    !loading && features?.enable_video_banner_content === true;
   if (!banners || banners.length === 0) {
     return (
       <div className="relative w-full min-h-[50vh] bg-gray-200 flex items-center justify-center">
@@ -36,16 +41,15 @@ export default function BannerSlider({ banners, autoPlayInterval = 4000 }) {
     );
   }
 
-  const hasVideo = banners.some((b) => b.videoUrl?.trim());
+  const hasVideo = banners.some((b) => b.videoUrl?.trim() && b.isActive);
 
   if (hasVideo) {
-    const videoBanner =
-      banners.find((b) => b.videoUrl?.trim() && b.isActive) || banners[0];
+    const videoBanner = banners.find((b) => b.videoUrl?.trim() && b.isActive);
 
     const videoSrc = getMediaUrl(videoBanner.videoUrl);
 
     return (
-      <div className="relative w-full h-screen overflow-hidden">
+      <div className="relative w-full h-[56.25vw] md:h-screen overflow-hidden">
         <video
           key={videoSrc}
           src={videoSrc}
@@ -54,23 +58,17 @@ export default function BannerSlider({ banners, autoPlayInterval = 4000 }) {
           loop
           playsInline
           preload="auto"
-          className="absolute inset-0 w-full h-screen object-cover"
+          className="absolute inset-0 w-full h-full object-cover"
         >
           Your browser does not support the video tag.
         </video>
         {!loading && isVideoBannerContentEnabled && (
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
             <div className="text-center text-white px-6 max-w-4xl">
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4">
+              <h1 className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-bold mb-4">
                 {videoBanner.title}
               </h1>
-              <p className="text-lg md:text-2xl mb-6">{videoBanner.description}</p>
-              <Link
-                href="/shop"
-                className="inline-block bg-teal-600 uppercase px-8 py-3 rounded text-white font-medium hover:bg-teal-700 transition"
-              >
-                Shop Now
-              </Link>
+              <p className="text-sm sm:text-lg md:text-2xl mb-6">{videoBanner.description}</p>
             </div>
           </div>
         )}
@@ -92,7 +90,7 @@ export default function BannerSlider({ banners, autoPlayInterval = 4000 }) {
   });
 
   return (
-    <div className="relative w-full h-screen overflow-hidden">
+    <div className="relative w-full h-[56.25vw] md:h-screen overflow-hidden">
       <Swiper
         modules={[Autoplay, Navigation, Pagination]}
         autoplay={{ delay: autoPlayInterval, disableOnInteraction: false }}
@@ -103,7 +101,7 @@ export default function BannerSlider({ banners, autoPlayInterval = 4000 }) {
         className="h-full"
       >
         {slides.map((slide) => (
-          <SwiperSlide key={slide.key} className="relative w-full h-full min-h-[50vh]">
+          <SwiperSlide key={slide.key} className="relative w-full h-full">
             <Image
               src={slide.image}
               alt={slide.title || 'Banner'}
@@ -111,22 +109,15 @@ export default function BannerSlider({ banners, autoPlayInterval = 4000 }) {
               className="object-cover"
               priority
             />
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-              <div className="text-center text-white px-4 max-w-4xl">
-                <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-4">
-                  {slide.title}
-                </h1>
-                <p className="text-lg md:text-xl lg:text-xl mb-6">
-                  {slide.description}
-                </p>
-                <Link
-                  href="/shop"
-                  className="bg-teal-600 uppercase px-6 py-3 rounded text-white font-medium hover:bg-teal-700 transition inline-block"
-                >
-                  Shop Now
-                </Link>
+            {slide.description && (
+              <div className="absolute inset-0 flex items-center justify-center px-4">
+                <div className="bg-black/50 text-center text-white px-6 py-4 max-w-3xl rounded-md">
+                  <p className="text-sm sm:text-base md:text-xl lg:text-2xl font-medium">
+                    {slide.description}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </SwiperSlide>
         ))}
       </Swiper>

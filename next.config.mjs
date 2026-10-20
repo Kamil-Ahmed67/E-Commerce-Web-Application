@@ -1,13 +1,20 @@
+// Allow server-side fetch to reach APIs with self-signed certificates
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   devIndicators: false,
+  serverExternalPackages: ['googleapis', 'sharp'],
   images: {
-    unoptimized: true,
+    formats: ['image/avif', 'image/webp'],
+    localPatterns: [
+      { pathname: '/**' },
+    ],
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'drive.google.com',
-        pathname: '/thumbnail', //Allow thumbnail-URLs
+        pathname: '/**',
       },
       {
         protocol: 'https',
@@ -19,9 +26,17 @@ const nextConfig = {
         hostname: '*.googleusercontent.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '*.minglefashionbd.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'minglefashionbd.com',
+        pathname: '/**',
+      },
     ],
-    // Allow ALL domains (temporarily for testing)
-    domains: ['*'],
   },
   experimental: {
     serverActions: {

@@ -119,10 +119,10 @@ export default function RelatedProducts({
         return (
           <div
             key={product.id}
-            className="group relative bg-white border border-gray-200 hover:border-gray-300 rounded transition-shadow hover:shadow-md overflow-hidden"
+            className="product-card group relative bg-white border border-gray-200 hover:border-gray-300 rounded transition-shadow hover:shadow-md overflow-hidden"
           >
             <div className="relative aspect-3/4 overflow-hidden">
-              <Link href={`/shop-details/${product.id}`} className="block w-full h-full">
+              <Link href={`/product/${product.slug}`} className="block w-full h-full">
                 {/* Default image */}
                 <Image
                   src={defaultImage}

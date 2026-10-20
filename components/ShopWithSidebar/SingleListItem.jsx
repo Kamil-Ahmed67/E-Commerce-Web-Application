@@ -65,7 +65,7 @@ const SingleListItem = ({ product, onQuickView }) => {
   };
 
   return (
-    <div className="group relative bg-white border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-300">
+    <div className="product-card group relative bg-white border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors duration-300">
       <div className="flex flex-col sm:flex-row">
         {/* Product Image Container */}
         <div className="relative w-full sm:w-72 h-96 sm:h-auto overflow-hidden">
@@ -103,13 +103,13 @@ const SingleListItem = ({ product, onQuickView }) => {
           </button>
 
           {/* Product Image */}
-          <Link prefetch={false} href={`/shop-details/${product.id}`} className="block w-full h-full relative">
+          <Link prefetch={false} href={`/product/${product.slug}`} className="block w-full h-full relative">
             <Image
               src={product.imgs?.previews?.[0] || '/images/placeholder-product.png'}
               alt={product.styleNo}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className="object-contain transition-transform duration-500 group-hover:scale-105"
               priority
               placeholder="blur"
               blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HgAGgwJ/lK3Q6wAAAABJRU5ErkJggg=="
@@ -133,7 +133,7 @@ const SingleListItem = ({ product, onQuickView }) => {
               {product.brand}
             </p>
             <h3 className="text-xl font-light text-gray-900 mb-2 leading-snug">
-              <Link prefetch={false} href={`/shop-details/${product.id}`} className="hover:underline">
+              <Link prefetch={false} href={`/product/${product.slug}`} className="hover:underline">
                 {/* {product.styleNo} */}
                 {product.description}
               </Link>
@@ -173,7 +173,7 @@ const SingleListItem = ({ product, onQuickView }) => {
 
             <div className="flex space-x-4">
               <Link
-                href={`/shop-details/${product.id}`}
+                href={`/product/${product.slug}`}
                 className="flex-1 text-center py-3 px-4 border border-black hover:border-teal-600 hover:bg-teal-600 text-sm uppercase tracking-widest font-light text-black hover:text-white transition-colors duration-300"
               >
                 View Details

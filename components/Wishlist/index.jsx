@@ -1,12 +1,31 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import toast from "react-hot-toast";
 import { HiOutlineHeart } from "react-icons/hi";
 import Link from "next/link";
 import { useWishlist } from "@/provider/WishlistProvider";
 import SingleItem from "./SingleItem";
+import Breadcrumb from "@/components/Breadcrumb/Breadcrumb";
+import { trackEvent } from "@/lib/trackEvent";
 const Wishlist = () => {
   const { wishlistItems, clearWishlist } = useWishlist();
+
+  useEffect(() => {
+    if (!wishlistItems.length) return;
+    trackEvent('view_item_list', {
+      contentIds: wishlistItems.map((p) => String(p.id)),
+      contents: wishlistItems.map((p) => ({
+        id: p.id,
+        title: p.title,
+        price: p.price ?? 0,
+        quantity: 1,
+        brand: p.brand,
+      })),
+      numItems: wishlistItems.length,
+      listName: 'Wishlist',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wishlistItems]);
 
   const handleClearWishlist = () => {
     if (wishlistItems.length === 0) {
@@ -20,6 +39,10 @@ const Wishlist = () => {
   return (
     <section>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-4">
+          <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Wishlist', href: null }]} />
+        </div>
+
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Your Wishlist</h1>

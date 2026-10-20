@@ -1,6 +1,10 @@
 // app/layout.jsx
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
+import { getPixelConfigs } from '@/lib/server/getPixelConfigs';
+import CookieConsentWrapper from '@/components/CookieConsentWrapper/CookieConsentWrapper';
+import RouteTracker from '@/components/RouteTracker/RouteTracker';
+import { AuthProvider } from '@/provider/AuthProvider';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,17 +20,23 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: 'Mingle',
-  description: 'Mingle Fashion',
+  description: 'Mingle In Style',
 };
 
-export default function ResetPasswordLayout({ children }) {
+export default async function ResetPasswordLayout({ children }) {
+  const pixelConfigs = await getPixelConfigs();
+
   return (
     <html lang="en">
       <body
         suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-50`}
       >
-        {children}
+        <CookieConsentWrapper configs={pixelConfigs} />
+        <AuthProvider>
+          <RouteTracker />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

@@ -3,7 +3,6 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import config from '@/config';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -11,6 +10,7 @@ function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState({ message: '', isError: false });
   const [loading, setLoading] = useState(false);
+  const [succeeded, setSucceeded] = useState(false);
 
   const token = searchParams.get('token');
   const email = searchParams.get('email');
@@ -33,28 +33,27 @@ function ResetPasswordForm() {
     }
 
     try {
-      const response = await fetch(`${config.API_BASE_URL}api/EItem/ResetPassword`, {
+      // Goes through our own /api/auth/reset-password route, which verifies the
+      // signed reset token before touching the backend — the backend's
+      // api/EItem/ResetPassword endpoint has no token check of its own, so this
+      // verification step is what actually protects the account.
+      const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'TenantId': config.tenantId
-        },
-        body: JSON.stringify({
-          Email: email,
-          Password: password,
-          token
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, token, password }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to reset password');
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to reset password');
       }
 
       setStatus({
         message: 'Password reset successfully! You can now login with your new password.',
         isError: false
       });
+      setSucceeded(true);
 
       setPassword('');
       setConfirmPassword('');
@@ -88,51 +87,59 @@ function ResetPasswordForm() {
           </div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md space-y-4">
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-600">
-                New Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                placeholder="Enter new password"
-              />
+        {!token || !email ? (
+          <div className="rounded-md p-4 bg-[#fef2f2] text-[#991b1b] text-sm">
+            This reset link is missing or malformed. Please request a new one from the sign-in page.
+          </div>
+        ) : !succeeded && (
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            <div className="rounded-md space-y-4">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-600">
+                  New Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-600">
+                  Confirm New Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  placeholder="Confirm new password"
+                />
+              </div>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-600">
-                Confirm New Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                placeholder="Confirm new password"
-              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#32BBAB] hover:bg-[#289487] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition ease-in-out duration-500"
+              >
+                {loading ? 'Resetting...' : 'Reset Password'}
+              </button>
             </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#32BBAB] hover:bg-[#289487] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition ease-in-out duration-500"
-            >
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
-          </div>
-        </form>
+          </form>
+        )}
 
         <div className="text-center text-sm">
           <Link href="/signin" className="font-medium text-[#289487] transition ease-in-out duration-500 hover:text-[#32BBAB]">

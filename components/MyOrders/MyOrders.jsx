@@ -575,6 +575,17 @@ const MyOrders = () => {
                     </span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-gray-600">Payment Status</span>
+                    <span
+                      className={`font-medium ${selectedOrder[0].PaymentStatus === 'Paid'
+                          ? "text-green-600"
+                          : "text-red-500"
+                        }`}
+                    >
+                      {selectedOrder[0].PaymentStatus || 'Unpaid'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-gray-600">Status</span>
                     <span
                       className={`font-medium ${selectedOrder[0].ShipmentStatus === 0
